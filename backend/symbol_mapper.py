@@ -1,5 +1,6 @@
 import os
 import io
+import re
 import logging
 import requests
 import pandas as pd
@@ -16,6 +17,41 @@ os.makedirs(CACHE_DIR, exist_ok=True)
 
 EQUITY_CACHE_PATH = os.path.join(CACHE_DIR, "EQUITY_L.csv")
 ETF_CACHE_PATH = os.path.join(CACHE_DIR, "eq_etfseclist.csv")
+
+# Manual mapping overrides for common custom broker symbol/ISIN inconsistencies
+SYMBOL_OVERRIDES = {
+    "MAXHEA": ("MAXHEALTH.NS", "Max Healthcare Institute Limited", False),
+    "MAXHEALTH": ("MAXHEALTH.NS", "Max Healthcare Institute Limited", False),
+    "ELEENG": ("ELECON.NS", "Elecon Engineering Company Limited", False),
+    "ELECON": ("ELECON.NS", "Elecon Engineering Company Limited", False),
+    "KGKHOS": ("KIRLPNU.NS", "Kirloskar Pneumatic Company Limited", False),
+    "KIRLPNU": ("KIRLPNU.NS", "Kirloskar Pneumatic Company Limited", False),
+    "ELESTE": ("ELECTCAST.NS", "Electrosteel Castings Limited", False),
+    "ELECTCAST": ("ELECTCAST.NS", "Electrosteel Castings Limited", False),
+    "GABIND": ("GABRIEL.NS", "Gabriel India Limited", False),
+    "ASHLEY": ("ASHOKLEY.NS", "Ashok Leyland Limited", False),
+    "BAAUTO": ("BAJAJ-AUTO.NS", "Bajaj Auto Limited", False),
+    "TVSMOT": ("TVSMOTOR.NS", "TVS Motor Company Limited", False),
+    "AXIBAN": ("AXISBANK.NS", "Axis Bank Limited", False),
+    "BANMAH": ("MAHABANK.NS", "Bank of Maharashtra", False),
+    "FEDBAN": ("FEDERALBNK.NS", "Federal Bank Limited", False),
+    "HDFBAN": ("HDFCBANK.NS", "HDFC Bank Limited", False),
+    "ICIBAN": ("ICICIBANK.NS", "ICICI Bank Limited", False),
+    "SOUBAN": ("SOUTHBANK.NS", "South Indian Bank Limited", False),
+    "STABAN": ("SBIN.NS", "State Bank of India", False),
+    "KEIIND": ("KEI.NS", "KEI Industries Limited", False),
+    "NAVFLU": ("NAVINFLUOR.NS", "Navin Fluorine International Limited", False),
+    "TATCHE": ("TATACHEM.NS", "Tata Chemicals Limited", False),
+    "KALPOW": ("KPIL.NS", "Kalpataru Projects International Limited", False),
+    "MACDEV": ("LODHA.NS", "Macrotech Developers Limited", False),
+    "SOBDEV": ("SOBHA.NS", "Sobha Limited", False),
+    "SWILIM": ("SWIGGY.NS", "Swiggy Limited", False),
+    "ZOMLIM": ("ZOMATO.NS", "Zomato Limited", False),
+    "HDFGOL": ("HDFCGOLD.NS", "HDFC Gold ETF", True),
+    "ICINIF": ("NIFTYIETF.NS", "ICICI Pru Nifty ETF", True),
+    "NIPSIL": ("SILVERBEES.NS", "Nippon India Silver ETF", True),
+    "PSUBAN": ("PSUBNKBEES.NS", "Nippon India ETF PSB", True)
+}
 
 class SymbolMapper:
     def __init__(self):
@@ -68,8 +104,10 @@ class SymbolMapper:
                 symbol = str(row[symbol_col]).strip()
                 name = str(row[name_col]).strip()
                 if isin and symbol:
+                    # Clean whitespaces including hidden ones
+                    clean_isin = re.sub(r'\s+', '', isin).upper()
                     # Append .NS suffix for Yahoo Finance
-                    self.isin_to_symbol[isin] = (f"{symbol}.NS", name, False)
+                    self.isin_to_symbol[clean_isin] = (f"{symbol}.NS", name, False)
             
             logger.info(f"Loaded {len(self.isin_to_symbol)} equities from cached list.")
         except Exception as e:
@@ -103,7 +141,8 @@ class SymbolMapper:
                 symbol = str(row[symbol_col]).strip()
                 name = str(row[name_col]).strip()
                 if isin and symbol:
-                    self.isin_to_symbol[isin] = (f"{symbol}.NS", name, True)
+                    clean_isin = re.sub(r'\s+', '', isin).upper()
+                    self.isin_to_symbol[clean_isin] = (f"{symbol}.NS", name, True)
                     count += 1
             
             logger.info(f"Loaded {count} ETFs from cached list.")
@@ -164,26 +203,28 @@ class SymbolMapper:
         Returns:
             Tuple containing: (yahoo_ticker, company_name, is_etf)
         """
-        # Clean ISIN
-        isin_clean = str(isin).strip().upper()
+        # Clean ISIN (remove all hidden or standard whitespace)
+        isin_clean = re.sub(r'\s+', '', str(isin)).strip().upper()
+        symbol_clean = re.sub(r'\s+', '', str(symbol_hint)).strip().upper() if symbol_hint else ""
         
-        # 1. Primary check in cached lists
+        # 1. Check for manual symbol override (e.g. ELESTE -> ELECTCAST, MAXHEA -> MAXHEALTH)
+        if symbol_clean in SYMBOL_OVERRIDES:
+            logger.info(f"Manual Override Match for Symbol Hint: {symbol_clean}")
+            return SYMBOL_OVERRIDES[symbol_clean]
+            
+        # 2. Primary check in cached lists
         if isin_clean in self.isin_to_symbol:
             return self.isin_to_symbol[isin_clean]
             
-        # 2. Secondary check using Yahoo Search API
+        # 3. Secondary check using Yahoo Search API
         resolved = self.query_yahoo_finance_isin(isin_clean)
         if resolved:
             # Cache it in memory for subsequent lookups
             self.isin_to_symbol[isin_clean] = resolved
             return resolved
             
-        # 3. Fallback to using the symbol hint
+        # 4. Fallback to using the symbol hint
         if symbol_hint:
-            symbol_clean = str(symbol_hint).strip().upper()
-            
-            # Map common broker symbols back to their Yahoo counterpart
-            # e.g., GABIND -> GABRIEL, ASHLEY -> ASHOKLEY
             # If the user uploaded a shortened symbol, let's append .NS
             if not symbol_clean.endswith(".NS"):
                 ticker = f"{symbol_clean}.NS"

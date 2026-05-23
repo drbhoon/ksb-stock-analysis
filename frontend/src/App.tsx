@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Dashboard } from './components/Dashboard';
 import { StockDetail } from './components/StockDetail';
 import { ShieldAlert, TrendingUp } from 'lucide-react';
@@ -95,6 +95,148 @@ function App() {
     }
   };
 
+  // 1. Dynamic Client-Side Portfolio Recalculation
+  const recalculatedPortfolioData = useMemo(() => {
+    if (!portfolioData) return null;
+    
+    const recalculatedResults = portfolioData.results.map((stock: any) => {
+      let combinedScore = 50.0;
+      const techScore = stock.technical_score ?? 50.0;
+      const fundScore = stock.fundamental_score ?? 50.0;
+      
+      if (stock.is_etf) {
+        combinedScore = techScore;
+      } else {
+        combinedScore = (weightF * fundScore) + (weightT * techScore);
+      }
+      
+      let signal = "HOLD";
+      let colorTheme = "amber";
+      let confidence = combinedScore;
+      
+      if (combinedScore >= 70) {
+        signal = "BUY";
+        colorTheme = "emerald";
+        confidence = combinedScore;
+      } else if (combinedScore >= 40) {
+        signal = "HOLD";
+        colorTheme = "amber";
+        confidence = combinedScore;
+      } else {
+        signal = "SELL";
+        colorTheme = "crimson";
+        confidence = 100 - combinedScore;
+      }
+      
+      let verdict = "Consolidating price or fairly valued fundamentals. Maintain position without adding leverage.";
+      if (signal === "BUY") {
+        verdict = "Attractive asset entry opportunity with positive momentum and underlying security health.";
+      } else if (signal === "SELL") {
+        verdict = "Weak technical trends or severe overvaluation/balance sheet vulnerabilities. Risk mitigation recommended.";
+      }
+      
+      let summaryText = stock.summary;
+      const parts = stock.summary.split(/\. (Attractive asset entry|Consolidating price|Weak technical)/);
+      if (parts.length > 0) {
+        summaryText = parts[0].trim() + ". " + verdict;
+      }
+      
+      return {
+        ...stock,
+        combined_score: combinedScore,
+        signal,
+        color_theme: colorTheme,
+        confidence,
+        summary: summaryText
+      };
+    });
+    
+    const total = recalculatedResults.length;
+    const buyCount = recalculatedResults.filter((r: any) => r.signal === "BUY").length;
+    const holdCount = recalculatedResults.filter((r: any) => r.signal === "HOLD").length;
+    const sellCount = recalculatedResults.filter((r: any) => r.signal === "SELL").length;
+    
+    const avgScore = total ? (recalculatedResults.reduce((acc: number, curr: any) => acc + curr.combined_score, 0) / total) : 0;
+    
+    let sentiment = "NEUTRAL";
+    if (avgScore >= 70) {
+      sentiment = "BULLISH";
+    } else if (avgScore >= 40) {
+      sentiment = "NEUTRAL";
+    } else {
+      sentiment = "BEARISH";
+    }
+    
+    return {
+      ...portfolioData,
+      stats: {
+        buy_count: buyCount,
+        hold_count: holdCount,
+        sell_count: sellCount,
+        avg_score: avgScore,
+        sentiment
+      },
+      results: recalculatedResults
+    };
+  }, [portfolioData, weightF, weightT]);
+
+  // 2. Dynamic Client-Side Single Stock Detail Recalculation
+  const recalculatedStockDetail = useMemo(() => {
+    if (!selectedStockDetail) return null;
+    
+    const stock = selectedStockDetail;
+    let combinedScore = 50.0;
+    const techScore = stock.technical_score ?? 50.0;
+    const fundScore = stock.fundamental_score ?? 50.0;
+    
+    if (stock.is_etf) {
+      combinedScore = techScore;
+    } else {
+      combinedScore = (weightF * fundScore) + (weightT * techScore);
+    }
+    
+    let signal = "HOLD";
+    let colorTheme = "amber";
+    let confidence = combinedScore;
+    
+    if (combinedScore >= 70) {
+      signal = "BUY";
+      colorTheme = "emerald";
+      confidence = combinedScore;
+    } else if (combinedScore >= 40) {
+      signal = "HOLD";
+      colorTheme = "amber";
+      confidence = combinedScore;
+    } else {
+      signal = "SELL";
+      colorTheme = "crimson";
+      confidence = 100 - combinedScore;
+    }
+    
+    let verdict = "Consolidating price or fairly valued fundamentals. Maintain position without adding leverage.";
+    if (signal === "BUY") {
+      verdict = "Attractive asset entry opportunity with positive momentum and underlying security health.";
+    } else if (signal === "SELL") {
+      verdict = "Weak technical trends or severe overvaluation/balance sheet vulnerabilities. Risk mitigation recommended.";
+    }
+    
+    let summaryText = stock.summary;
+    const parts = stock.summary.split(/\. (Attractive asset entry|Consolidating price|Weak technical)/);
+    if (parts.length > 0) {
+      summaryText = parts[0].trim() + ". " + verdict;
+    }
+    
+    return {
+      ...stock,
+      combined_score: combinedScore,
+      signal,
+      color_theme: colorTheme,
+      confidence,
+      summary: summaryText
+    };
+  }, [selectedStockDetail, weightF, weightT]);
+
+
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       {/* Navbar header */}
@@ -160,7 +302,7 @@ function App() {
         )}
 
         <Dashboard 
-          portfolioData={portfolioData}
+          portfolioData={recalculatedPortfolioData}
           onUpload={handleUpload}
           onSelectStock={handleSelectStock}
           isLoading={isLoading}
@@ -174,7 +316,7 @@ function App() {
         {/* Slide-out details drawer */}
         {selectedStock && (
           <StockDetail 
-            stockDetail={selectedStockDetail}
+            stockDetail={recalculatedStockDetail}
             onClose={() => {
               setSelectedStock(null);
               setSelectedStockDetail(null);
