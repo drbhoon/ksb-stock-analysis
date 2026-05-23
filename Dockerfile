@@ -21,7 +21,7 @@ RUN npm run build
 # =========================================================
 # Stage 2: Build the FastAPI Python Production Server
 # =========================================================
-FROM python:3.11-slim
+FROM python:3.11-slim-bookworm
 WORKDIR /app
 
 # Install system dependencies (curl for healthchecks, etc.)
