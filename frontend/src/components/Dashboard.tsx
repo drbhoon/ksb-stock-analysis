@@ -119,7 +119,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>{idx.name}</span>
                 <span style={{ fontSize: '1.2rem', fontFamily: 'var(--font-heading)', fontWeight: 700 }}>
-                  {idx.price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                  {(idx.price || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                 </span>
               </div>
               <div style={{ 
@@ -127,12 +127,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 display: 'flex', 
                 alignItems: 'center', 
                 gap: '4px',
-                color: idx.change >= 0 ? 'var(--color-buy)' : 'var(--color-sell)',
+                color: (idx.change || 0) >= 0 ? 'var(--color-buy)' : 'var(--color-sell)',
                 fontSize: '0.9rem',
                 fontWeight: 600
               }}>
-                {idx.change >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
-                <span>{idx.change_percent >= 0 ? '+' : ''}{idx.change_percent.toFixed(2)}%</span>
+                {(idx.change || 0) >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
+                <span>{((idx.change_percent || 0) >= 0 ? '+' : '') + (idx.change_percent || 0).toFixed(2)}%</span>
               </div>
             </div>
           ))}
@@ -503,27 +503,27 @@ export const Dashboard: React.FC<DashboardProps> = ({
                           {stock.uploaded_isin}
                         </td>
                         <td style={{ textAlign: 'right', fontWeight: 700, fontFamily: 'var(--font-heading)' }}>
-                          {stock.latest_price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          {(stock.latest_price || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </td>
                         <td style={{ 
                           textAlign: 'right', 
                           fontWeight: 600,
-                          color: stock.change >= 0 ? 'var(--color-buy)' : 'var(--color-sell)'
+                          color: (stock.change || 0) >= 0 ? 'var(--color-buy)' : 'var(--color-sell)'
                         }}>
-                          {stock.change_percent >= 0 ? '+' : ''}{stock.change_percent.toFixed(2)}%
+                          {((stock.change_percent || 0) >= 0 ? '+' : '') + (stock.change_percent || 0).toFixed(2)}%
                         </td>
                         <td style={{ textAlign: 'center', fontWeight: 600 }}>
                           <span style={{ 
-                            color: stock.technical_score >= 70 ? 'var(--color-buy)' : stock.technical_score >= 40 ? 'var(--color-hold)' : 'var(--color-sell)'
-                          }}>{Math.round(stock.technical_score)}</span>
+                            color: (stock.technical_score || 0) >= 70 ? 'var(--color-buy)' : (stock.technical_score || 0) >= 40 ? 'var(--color-hold)' : 'var(--color-sell)'
+                          }}>{Math.round(stock.technical_score || 0)}</span>
                         </td>
                         <td style={{ textAlign: 'center', fontWeight: 600 }}>
                           {stock.is_etf ? (
                             <span style={{ color: 'var(--text-dim)' }}>—</span>
                           ) : (
                             <span style={{ 
-                              color: stock.fundamental_score >= 70 ? 'var(--color-buy)' : stock.fundamental_score >= 40 ? 'var(--color-hold)' : 'var(--color-sell)'
-                            }}>{Math.round(stock.fundamental_score)}</span>
+                              color: (stock.fundamental_score || 0) >= 70 ? 'var(--color-buy)' : (stock.fundamental_score || 0) >= 40 ? 'var(--color-hold)' : 'var(--color-sell)'
+                            }}>{Math.round(stock.fundamental_score || 0)}</span>
                           )}
                         </td>
                         <td style={{ textAlign: 'center' }}>
