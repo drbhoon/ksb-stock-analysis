@@ -135,10 +135,12 @@ function App() {
         verdict = "Weak technical trends or severe overvaluation/balance sheet vulnerabilities. Risk mitigation recommended.";
       }
       
-      let summaryText = stock.summary;
-      const parts = stock.summary.split(/\. (Attractive asset entry|Consolidating price|Weak technical)/);
-      if (parts.length > 0) {
-        summaryText = parts[0].trim() + ". " + verdict;
+      let summaryText = stock.summary || "";
+      if (summaryText) {
+        const parts = summaryText.split(/\. (Attractive asset entry|Consolidating price|Weak technical)/);
+        if (parts.length > 0) {
+          summaryText = parts[0].trim() + ". " + verdict;
+        }
       }
       
       return {
@@ -220,10 +222,12 @@ function App() {
       verdict = "Weak technical trends or severe overvaluation/balance sheet vulnerabilities. Risk mitigation recommended.";
     }
     
-    let summaryText = stock.summary;
-    const parts = stock.summary.split(/\. (Attractive asset entry|Consolidating price|Weak technical)/);
-    if (parts.length > 0) {
-      summaryText = parts[0].trim() + ". " + verdict;
+    let summaryText = stock.summary || "";
+    if (summaryText) {
+      const parts = summaryText.split(/\. (Attractive asset entry|Consolidating price|Weak technical)/);
+      if (parts.length > 0) {
+        summaryText = parts[0].trim() + ". " + verdict;
+      }
     }
     
     return {

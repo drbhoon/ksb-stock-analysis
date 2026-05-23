@@ -46,6 +46,16 @@ def analyze_single_stock_task(row: Dict[str, Any], weight_f: float, weight_t: fl
             weight_technical=weight_t
         )
         
+        if not analysis.get("success"):
+            return {
+                "success": False,
+                "row_index": row_idx,
+                "isin": isin,
+                "symbol": symbol_hint,
+                "name": name_hint,
+                "error": analysis.get("error", "Quantitative analysis failed.")
+            }
+        
         # Add metadata
         analysis["uploaded_isin"] = isin
         analysis["uploaded_symbol"] = symbol_hint
