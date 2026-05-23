@@ -12,7 +12,11 @@
 **/venv
 **/env
 **/ENV
-**/.cache
+# Allow backend/.cache (NSE CSV files) — only block npm/pip/browser caches
+**/.npm
+**/.pip
+**/.pytest_cache
+**/node_modules/.cache
 
 # Ignore git and local environment files
 **/.git
