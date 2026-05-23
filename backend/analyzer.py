@@ -89,6 +89,12 @@ class StockAnalyzer:
             if history.empty:
                 raise ValueError(f"No historical price data returned for {ticker_symbol}")
                 
+            # Clean history: drop any rows that have NaN in the Close price column (e.g. incomplete weekend/live rows)
+            history = history.dropna(subset=['Close'])
+            
+            if history.empty:
+                raise ValueError(f"No historical price data returned for {ticker_symbol} after dropping empty/NaN price rows.")
+                
             latest_close = float(history['Close'].iloc[-1])
             prev_close = float(history['Close'].iloc[-2]) if len(history) > 1 else latest_close
             daily_change = latest_close - prev_close

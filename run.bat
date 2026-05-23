@@ -22,6 +22,11 @@ echo [2/3] Checking backend requirements...
 pip install -r backend\requirements.txt
 
 echo.
+echo Cleaning up any stale server processes on ports 8000 or 5173...
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr :8000 ^| findstr LISTENING') do taskkill /f /pid %%a >nul 2>&1
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr :5173 ^| findstr LISTENING') do taskkill /f /pid %%a >nul 2>&1
+
+echo.
 echo [3/3] Launching servers...
 echo.
 echo ---------------------------------------------------------------------
