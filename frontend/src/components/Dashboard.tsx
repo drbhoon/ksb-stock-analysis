@@ -139,23 +139,30 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
       )}
 
-      {/* 2. Top Heading and Settings Button */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
-        <div>
-          <h1 style={{ fontSize: '2.5rem', fontWeight: 800, background: 'linear-gradient(135deg, #fff, var(--text-muted))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            KSB Stock Analysis
-          </h1>
-          <p style={{ color: 'var(--text-muted)', marginTop: '4px' }}>
-            Comprehensive Quantitative Technical & Fundamental Asset Intelligence for Indian Markets
-          </p>
-        </div>
+      {/* 2. Top Centered Heading */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: '36px', position: 'relative' }}>
+        <h1 style={{ 
+          fontSize: '2.8rem', 
+          fontWeight: 800, 
+          background: 'linear-gradient(135deg, #fff 30%, var(--text-muted) 100%)', 
+          WebkitBackgroundClip: 'text', 
+          WebkitTextFillColor: 'transparent',
+          letterSpacing: '-0.02em',
+          marginBottom: '6px'
+        }}>
+          Portfolio Analyser by Dr KS Bhoon
+        </h1>
+        <p style={{ color: 'var(--text-muted)', fontSize: '1.05rem', maxWidth: '720px', lineHeight: '1.5' }}>
+          Comprehensive Quantitative Technical & Fundamental Asset Intelligence for Indian Markets
+        </p>
+        
         <button 
           className="btn-secondary" 
           onClick={() => setShowSettings(!showSettings)}
-          style={{ gap: '8px', padding: '12px 20px' }}
+          style={{ gap: '8px', padding: '10px 18px', marginTop: '16px', fontSize: '0.85rem' }}
         >
-          <Settings size={18} />
-          <span>Analysis Weights</span>
+          <Settings size={16} />
+          <span>Adjust Analysis Weights</span>
         </button>
       </div>
 

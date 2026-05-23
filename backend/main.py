@@ -1,9 +1,11 @@
 import logging
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+import os
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from typing import List, Dict, Any, Optional
 import concurrent.futures
+from pydantic import BaseModel
 
 # Import backend modules
 from symbol_mapper import mapper
@@ -23,6 +25,76 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Authentication Verification Helper
+def get_current_user(authorization: Optional[str] = Header(None)):
+    correct_password = os.getenv("APP_PASSWORD")
+    if not correct_password:
+        return True
+    if authorization == f"Bearer {correct_password}":
+        return True
+    raise HTTPException(status_code=401, detail="Unauthorized access. Invalid or missing password.")
+
+class PasswordVerifyRequest(BaseModel):
+    password: str
+
+@app.get("/api/auth/status")
+async def get_auth_status():
+    """Check if app password protection is enabled."""
+    has_pwd = os.getenv("APP_PASSWORD") is not None
+    return {"auth_required": has_pwd}
+
+@app.post("/api/auth/verify")
+async def verify_password(req: PasswordVerifyRequest):
+    """Verify password and return bearer token."""
+    correct_password = os.getenv("APP_PASSWORD")
+    if not correct_password:
+        return {"success": True, "token": ""}
+        
+    if req.password == correct_password:
+        return {"success": True, "token": correct_password}
+    else:
+        raise HTTPException(status_code=401, detail="Invalid password.")
+
+@app.get("/api/search")
+async def search_stocks(q: str, authenticated: bool = Depends(get_current_user)):
+    """Search for stocks in cached equity and ETF lists in memory."""
+    if not q or len(q.strip()) < 2:
+        return []
+        
+    query = q.strip().upper()
+    matches = []
+    
+    # 1. Search in manual overrides first (prioritize them)
+    from symbol_mapper import SYMBOL_OVERRIDES
+    for key, val in SYMBOL_OVERRIDES.items():
+        ticker, name, is_etf = val
+        if query in key or query in ticker.upper() or query in name.upper():
+            matches.append({
+                "symbol": ticker,
+                "name": name,
+                "is_etf": is_etf,
+                "isin": ""
+            })
+            
+    # 2. Search in EQUITY_L and ETF loaded caches
+    for isin, val in mapper.isin_to_symbol.items():
+        ticker, name, is_etf = val
+        # Avoid duplicate matches
+        if any(m["symbol"] == ticker for m in matches):
+            continue
+            
+        if query in ticker.upper() or query in name.upper() or query in isin:
+            matches.append({
+                "symbol": ticker,
+                "name": name,
+                "is_etf": is_etf,
+                "isin": isin
+            })
+            if len(matches) >= 15: # Limit results for speed
+                break
+                
+    return matches
 
 # In-memory cache for portfolio results to support fast report exports and single analysis checks
 portfolio_cache: Dict[str, Any] = {}
@@ -77,7 +149,8 @@ def analyze_single_stock_task(row: Dict[str, Any], weight_f: float, weight_t: fl
 async def upload_portfolio(
     file: UploadFile = File(...),
     fundamental_weight: float = Form(0.60),
-    technical_weight: float = Form(0.40)
+    technical_weight: float = Form(0.40),
+    authenticated: bool = Depends(get_current_user)
 ):
     """Handles Excel/CSV portfolio upload, runs concurrent analysis, and aggregates signals."""
     logger.info(f"Received portfolio upload: {file.filename}")
@@ -163,7 +236,8 @@ async def analyze_stock_details(
     symbol: str, 
     is_etf: bool = False,
     fundamental_weight: float = 0.60,
-    technical_weight: float = 0.40
+    technical_weight: float = 0.40,
+    authenticated: bool = Depends(get_current_user)
 ):
     """Endpoint for detailed live-analysis of a single stock, including full chart history."""
     try:
@@ -227,7 +301,7 @@ async def analyze_stock_details(
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/market-summary")
-async def get_market_summary():
+async def get_market_summary(authenticated: bool = Depends(get_current_user)):
     """Fetches key indices (Nifty 50, Nifty Bank, Nifty Midcap) to display market benchmarks."""
     import yfinance as yf
     indices = {
@@ -258,6 +332,27 @@ async def get_market_summary():
             
     return summary
 
+# Serve static frontend files in production if dist folder is present
+frontend_dist_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "dist")
+if os.path.exists(frontend_dist_dir):
+    logger.info(f"Frontend dist folder detected at {frontend_dist_dir}. Enabling production same-origin static serving.")
+    from fastapi.staticfiles import StaticFiles
+    from fastapi.responses import FileResponse
+    
+    # Mount assets folder
+    assets_dir = os.path.join(frontend_dist_dir, "assets")
+    if os.path.exists(assets_dir):
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+        
+    # Catch-all route to serve Index.html for SPA routing
+    @app.get("/{catchall:path}")
+    async def serve_index(catchall: str):
+        index_path = os.path.join(frontend_dist_dir, "index.html")
+        if os.path.exists(index_path):
+            return FileResponse(index_path)
+
 if __name__ == "__main__":
     logger.info("Starting FastAPI server...")
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # Respect Railway's dynamic PORT binding variable, defaulting to 8000
+    server_port = int(os.getenv("PORT", "8000"))
+    uvicorn.run(app, host="0.0.0.0", port=server_port)

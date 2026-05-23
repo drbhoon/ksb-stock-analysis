@@ -1,11 +1,20 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Dashboard } from './components/Dashboard';
 import { StockDetail } from './components/StockDetail';
-import { ShieldAlert, TrendingUp } from 'lucide-react';
+import { SingleStockAnalysis } from './components/SingleStockAnalysis';
+import { PasswordGate } from './components/PasswordGate';
+import { ShieldAlert, TrendingUp, Lock } from 'lucide-react';
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = window.location.origin.includes('localhost:5173') 
+  ? 'http://localhost:8000' 
+  : window.location.origin;
 
 function App() {
+  const [token, setToken] = useState<string | null>(localStorage.getItem('ksb_auth_token'));
+  const [authRequired, setAuthRequired] = useState<boolean>(false);
+  const [authChecking, setAuthChecking] = useState<boolean>(true);
+  const [currentTab, setCurrentTab] = useState<'PORTFOLIO' | 'SINGLE'>('PORTFOLIO');
+
   const [portfolioData, setPortfolioData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [selectedStock, setSelectedStock] = useState<string | null>(null);
@@ -18,16 +27,42 @@ function App() {
   const [weightF, setWeightF] = useState<number>(0.60);
   const [weightT, setWeightT] = useState<number>(0.40);
 
-  // Fetch market indices on mount
+  // Check auth status on mount
   useEffect(() => {
+    const checkAuthStatus = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/auth/status`);
+        if (res.ok) {
+          const data = await res.json();
+          setAuthRequired(data.auth_required);
+        }
+      } catch (e) {
+        console.warn("Could not check auth status:", e);
+      } finally {
+        setAuthChecking(false);
+      }
+    };
+    checkAuthStatus();
+  }, []);
+
+  // Fetch market indices on mount (and after auth token is available)
+  useEffect(() => {
+    if (authChecking) return;
+    if (authRequired && !token) return;
+
     fetchMarketIndices();
     const interval = setInterval(fetchMarketIndices, 60000); // refresh every minute
     return () => clearInterval(interval);
-  }, []);
+  }, [authChecking, authRequired, token]);
 
   const fetchMarketIndices = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/market-summary`);
+      const headers: HeadersInit = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
+      const res = await fetch(`${API_BASE_URL}/api/market-summary`, { headers });
       if (res.ok) {
         const data = await res.json();
         setMarketSummary(data);
@@ -35,6 +70,38 @@ function App() {
     } catch (e) {
       console.warn("Could not fetch market indices:", e);
     }
+  };
+
+  const handleVerifyPassword = async (password: string): Promise<boolean> => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/auth/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password })
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          const bearerToken = data.token;
+          setToken(bearerToken);
+          localStorage.setItem('ksb_auth_token', bearerToken);
+          return true;
+        }
+      }
+      return false;
+    } catch (e) {
+      console.error("Password verification failed:", e);
+      throw e;
+    }
+  };
+
+  const handleLogout = () => {
+    setToken(null);
+    localStorage.removeItem('ksb_auth_token');
+    setPortfolioData(null);
+    setSelectedStock(null);
+    setSelectedStockDetail(null);
   };
 
   const handleUpload = async (file: File, fWeight: number, tWeight: number) => {
@@ -49,9 +116,15 @@ function App() {
     formData.append('technical_weight', tWeight.toString());
     
     try {
+      const headers: HeadersInit = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const res = await fetch(`${API_BASE_URL}/api/upload`, {
         method: 'POST',
         body: formData,
+        headers
       });
       
       if (!res.ok) {
@@ -75,8 +148,14 @@ function App() {
     setErrorMessage(null);
     
     try {
+      const headers: HeadersInit = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const res = await fetch(
-        `${API_BASE_URL}/api/analyze/${encodeURIComponent(symbol)}?is_etf=${isEtf}&fundamental_weight=${weightF}&technical_weight=${weightT}`
+        `${API_BASE_URL}/api/analyze/${encodeURIComponent(symbol)}?is_etf=${isEtf}&fundamental_weight=${weightF}&technical_weight=${weightT}`,
+        { headers }
       );
       
       if (!res.ok) {
@@ -240,9 +319,25 @@ function App() {
     };
   }, [selectedStockDetail, weightF, weightT]);
 
+  // Handle loading state for auth check
+  if (authChecking) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#020617', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ position: 'relative', width: '60px', height: '60px' }}>
+          <div className="glow-active" style={{ width: '60px', height: '60px', borderRadius: '50%', border: '4px solid rgba(59, 130, 246, 0.1)', borderTopColor: 'var(--color-primary)', animation: 'spin 1.2s linear infinite' }} />
+        </div>
+      </div>
+    );
+  }
+
+  // Display Lock Screen if auth is enabled and token is missing
+  if (authRequired && !token) {
+    return <PasswordGate onVerify={handleVerifyPassword} />;
+  }
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      
       {/* Navbar header */}
       <header className="glass-panel" style={{
         padding: '16px 40px',
@@ -260,14 +355,63 @@ function App() {
             <TrendingUp size={20} />
           </div>
           <span style={{ fontSize: '1.25rem', fontWeight: 800, fontFamily: 'var(--font-heading)', letterSpacing: '-0.02em' }}>
-            ANTIGRAVITY <span style={{ color: 'var(--color-primary)' }}>QUANT</span>
+            PORTFOLIO <span style={{ color: 'var(--color-primary)' }}>ANALYSER</span>
           </span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+
+        {/* Tab switch Navigation pills */}
+        <div style={{ display: 'flex', background: 'rgba(255,255,255,0.03)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border-glass)' }}>
+          <button 
+            onClick={() => setCurrentTab('PORTFOLIO')}
+            style={{
+              background: currentTab === 'PORTFOLIO' ? 'var(--color-primary)' : 'transparent',
+              border: 'none',
+              color: currentTab === 'PORTFOLIO' ? 'white' : 'var(--text-muted)',
+              padding: '8px 18px',
+              borderRadius: '6px',
+              fontSize: '0.85rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              fontFamily: 'var(--font-heading)'
+            }}
+          >
+            Portfolio Analysis
+          </button>
+          <button 
+            onClick={() => setCurrentTab('SINGLE')}
+            style={{
+              background: currentTab === 'SINGLE' ? 'var(--color-primary)' : 'transparent',
+              border: 'none',
+              color: currentTab === 'SINGLE' ? 'white' : 'var(--text-muted)',
+              padding: '8px 18px',
+              borderRadius: '6px',
+              fontSize: '0.85rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              fontFamily: 'var(--font-heading)'
+            }}
+          >
+            Single Stock Analysis
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }} />
             API Connected
           </span>
+          {authRequired && (
+            <button 
+              onClick={handleLogout}
+              className="btn-secondary"
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', fontSize: '0.75rem' }}
+            >
+              <Lock size={12} />
+              <span>Lock Terminal</span>
+            </button>
+          )}
         </div>
       </header>
 
@@ -305,17 +449,27 @@ function App() {
           </div>
         )}
 
-        <Dashboard 
-          portfolioData={recalculatedPortfolioData}
-          onUpload={handleUpload}
-          onSelectStock={handleSelectStock}
-          isLoading={isLoading}
-          weightF={weightF}
-          weightT={weightT}
-          setWeightF={setWeightF}
-          setWeightT={setWeightT}
-          marketSummary={marketSummary}
-        />
+        {currentTab === 'PORTFOLIO' ? (
+          <Dashboard 
+            portfolioData={recalculatedPortfolioData}
+            onUpload={handleUpload}
+            onSelectStock={handleSelectStock}
+            isLoading={isLoading}
+            weightF={weightF}
+            weightT={weightT}
+            setWeightF={setWeightF}
+            setWeightT={setWeightT}
+            marketSummary={marketSummary}
+          />
+        ) : (
+          <SingleStockAnalysis 
+            API_BASE_URL={API_BASE_URL}
+            weightF={weightF}
+            weightT={weightT}
+            onSelectStock={handleSelectStock}
+            token={token}
+          />
+        )}
 
         {/* Slide-out details drawer */}
         {selectedStock && (
@@ -332,7 +486,7 @@ function App() {
       </main>
 
       <footer style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-dim)', fontSize: '0.8rem', borderTop: '1px solid rgba(255,255,255,0.02)' }}>
-        © {new Date().getFullYear()} Antigravity Quant Analytics. All calculations are mathematical models; not direct financial recommendations.
+        © {new Date().getFullYear()} Portfolio Analyser by Dr KS Bhoon. All calculations are mathematical models; not direct financial recommendations.
       </footer>
     </div>
   );
