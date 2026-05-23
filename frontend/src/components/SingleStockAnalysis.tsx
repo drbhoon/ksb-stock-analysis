@@ -302,10 +302,13 @@ export const SingleStockAnalysis: React.FC<SingleStockAnalysisProps> = ({
             maxHeight: '320px',
             overflowY: 'auto',
             borderRadius: '12px',
-            border: '1px solid var(--border-glass)',
-            boxShadow: '0 10px 40px rgba(0,0,0,0.6)',
+            border: '1px solid rgba(255,255,255,0.15)',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.8)',
             padding: '8px 0',
-            zIndex: 100
+            zIndex: 100,
+            background: '#0d1326', // Solid deep surface color (opaque to prevent bleeding)
+            backdropFilter: 'none',
+            WebkitBackdropFilter: 'none'
           }}>
             {searchResults.map((option) => (
               <div 
@@ -369,7 +372,7 @@ export const SingleStockAnalysis: React.FC<SingleStockAnalysisProps> = ({
       )}
 
       {/* 4. Action Banner for Exporter (When length >= 5) */}
-      {recalculatedStocks.length >= 5 && (
+      {recalculatedStocks.length >= 5 && !(showDropdown && searchResults.length > 0) && (
         <div className="glass-panel glow-card-emerald animate-pulse-card" style={{
           padding: '20px 24px',
           borderRadius: '12px',
@@ -414,11 +417,12 @@ export const SingleStockAnalysis: React.FC<SingleStockAnalysisProps> = ({
 
       {/* 5. Custom Line-by-Line Datagrid Table */}
       {recalculatedStocks.length > 0 ? (
-        <div className="glass-panel" style={{ padding: '24px', overflow: 'hidden' }}>
-          <h3 style={{ fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
-            <Activity size={18} style={{ color: 'var(--color-primary)' }} />
-            Custom Portfolio Sheet ({recalculatedStocks.length} Assets)
-          </h3>
+        !(showDropdown && searchResults.length > 0) ? (
+          <div className="glass-panel" style={{ padding: '24px', overflow: 'hidden' }}>
+            <h3 style={{ fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
+              <Activity size={18} style={{ color: 'var(--color-primary)' }} />
+              Custom Portfolio Sheet ({recalculatedStocks.length} Assets)
+            </h3>
           
           <div style={{ overflowX: 'auto' }}>
             <table className="premium-table">
@@ -522,6 +526,21 @@ export const SingleStockAnalysis: React.FC<SingleStockAnalysisProps> = ({
           </div>
         </div>
       ) : (
+        <div style={{ 
+          padding: '32px', 
+          textAlign: 'center', 
+          borderRadius: '16px', 
+          background: 'rgba(255,255,255,0.01)',
+          border: '1px dashed rgba(255,255,255,0.07)',
+          opacity: 0.65,
+          transition: 'all 0.3s ease',
+          margin: '0 auto'
+        }}>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+            Currently searching... Select an asset above or click outside to view your portfolio sheet ({recalculatedStocks.length} assets).
+          </p>
+        </div>
+      )) : (
         // Initial Empty State
         <div className="glass-panel" style={{ padding: '80px 40px', textAlign: 'center', maxWidth: '640px', margin: '0 auto' }}>
           <Activity size={48} style={{ color: 'var(--color-primary)', margin: '0 auto 16px', opacity: 0.3 }} />
