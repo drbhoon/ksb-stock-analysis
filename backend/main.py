@@ -28,9 +28,7 @@ app.add_middleware(
 
 # Authentication Verification Helper
 def get_current_user(authorization: Optional[str] = Header(None)):
-    correct_password = os.getenv("APP_PASSWORD")
-    if not correct_password:
-        return True
+    correct_password = os.getenv("APP_PASSWORD", "Welcome@123")
     if authorization == f"Bearer {correct_password}":
         return True
     raise HTTPException(status_code=401, detail="Unauthorized access. Invalid or missing password.")
@@ -41,16 +39,12 @@ class PasswordVerifyRequest(BaseModel):
 @app.get("/api/auth/status")
 async def get_auth_status():
     """Check if app password protection is enabled."""
-    has_pwd = os.getenv("APP_PASSWORD") is not None
-    return {"auth_required": has_pwd}
+    return {"auth_required": True}
 
 @app.post("/api/auth/verify")
 async def verify_password(req: PasswordVerifyRequest):
     """Verify password and return bearer token."""
-    correct_password = os.getenv("APP_PASSWORD")
-    if not correct_password:
-        return {"success": True, "token": ""}
-        
+    correct_password = os.getenv("APP_PASSWORD", "Welcome@123")
     if req.password == correct_password:
         return {"success": True, "token": correct_password}
     else:

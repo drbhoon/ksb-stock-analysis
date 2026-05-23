@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Upload, AlertTriangle, TrendingUp, TrendingDown, Activity, Settings, RefreshCw, BarChart2, ShieldAlert } from 'lucide-react';
+import { Upload, AlertTriangle, TrendingUp, TrendingDown, Activity, Settings, RefreshCw, BarChart2, ShieldAlert, Download } from 'lucide-react';
 
 interface StockResult {
   symbol: string;
@@ -47,6 +47,31 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('ALL');
   const [showSettings, setShowSettings] = useState(false);
+
+  const downloadTemplateCSV = () => {
+    const headers = ["Stock Symb", "Company Name", "ISIN Code"];
+    const sampleRows = [
+      ["GABIND", "GABRIEL INDIA", "INE524A01029"],
+      ["ASHLEY", "ASHOK LEYLAND", "INE208A01029"],
+      ["ELEENG", "ELECON ENGINEERING", "INE205B01031"],
+      ["VARBEV", "VARUN BEVERAGES", "INE200M01039"],
+      ["MAXHEA", "MAX HEALTHCARE", "INE027H01010"]
+    ];
+    
+    const csvContent = [
+      headers.join(","),
+      ...sampleRows.map(row => row.join(","))
+    ].join("\n");
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", "portfolio_upload_template.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -252,9 +277,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
               onChange={handleFileInput}
               style={{ display: 'none' }}
             />
-            <label htmlFor="file-upload" className="btn-primary" style={{ cursor: 'pointer', marginTop: '8px' }}>
-              Select Spreadsheet
-            </label>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '16px', flexWrap: 'wrap' }}>
+              <label htmlFor="file-upload" className="btn-primary" style={{ cursor: 'pointer', margin: 0 }}>
+                Select Spreadsheet
+              </label>
+              <button 
+                onClick={downloadTemplateCSV}
+                className="btn-secondary"
+                style={{ gap: '6px', fontSize: '0.9rem', padding: '12px 18px', display: 'flex', alignItems: 'center' }}
+              >
+                <Download size={16} />
+                <span>Download Template (.csv)</span>
+              </button>
+            </div>
           </div>
         </div>
       ) : isLoading ? (
