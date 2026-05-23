@@ -3,7 +3,7 @@ import { Dashboard } from './components/Dashboard';
 import { StockDetail } from './components/StockDetail';
 import { ShieldAlert, TrendingUp } from 'lucide-react';
 
-const API_BASE_URL = 'http://127.0.0.1:8000';
+const API_BASE_URL = 'http://localhost:8000';
 
 function App() {
   const [portfolioData, setPortfolioData] = useState<any>(null);
