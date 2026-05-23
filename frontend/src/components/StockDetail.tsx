@@ -296,6 +296,15 @@ export const StockDetail: React.FC<StockDetailProps> = ({
                    fundamental_details.metrics.de_ratio ? fundamental_details.metrics.de_ratio.toFixed(2) : 'N/A'}
                 </span>
               </div>
+
+              {/* Metric Row Current Ratio */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: '6px' }}>
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Current Ratio</span>
+                <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>
+                  {fundamental_details.metrics.is_financial ? 'Exempt (Bank)' : 
+                   fundamental_details.metrics.current_ratio ? `${fundamental_details.metrics.current_ratio.toFixed(2)}x` : 'N/A'}
+                </span>
+              </div>
             </div>
           )}
           {!is_etf && (

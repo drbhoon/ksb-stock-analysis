@@ -22,8 +22,14 @@ ETF_CACHE_PATH = os.path.join(CACHE_DIR, "eq_etfseclist.csv")
 SYMBOL_OVERRIDES = {
     "MAXHEA": ("MAXHEALTH.NS", "Max Healthcare Institute Limited", False),
     "MAXHEALTH": ("MAXHEALTH.NS", "Max Healthcare Institute Limited", False),
+    "MAXHEALTHCARE": ("MAXHEALTH.NS", "Max Healthcare Institute Limited", False),
+    "MAXHEALTHCAREINSTITUTE": ("MAXHEALTH.NS", "Max Healthcare Institute Limited", False),
     "ELEENG": ("ELECON.NS", "Elecon Engineering Company Limited", False),
     "ELECON": ("ELECON.NS", "Elecon Engineering Company Limited", False),
+    "ELECONENGINEERING": ("ELECON.NS", "Elecon Engineering Company Limited", False),
+    "VARBEV": ("VBL.NS", "Varun Beverages Limited", False),
+    "VBL": ("VBL.NS", "Varun Beverages Limited", False),
+    "VARUNBEVERAGES": ("VBL.NS", "Varun Beverages Limited", False),
     "KGKHOS": ("KIRLPNU.NS", "Kirloskar Pneumatic Company Limited", False),
     "KIRLPNU": ("KIRLPNU.NS", "Kirloskar Pneumatic Company Limited", False),
     "ELESTE": ("ELECTCAST.NS", "Electrosteel Castings Limited", False),
@@ -205,24 +211,38 @@ class SymbolMapper:
             Tuple containing: (yahoo_ticker, company_name, is_etf)
         """
         # Clean ISIN (remove all hidden or standard whitespace)
-        isin_clean = re.sub(r'\s+', '', str(isin)).strip().upper()
+        isin_clean = re.sub(r'\s+', '', str(isin)).strip().upper() if isin else ""
         symbol_clean = re.sub(r'\s+', '', str(symbol_hint)).strip().upper() if symbol_hint else ""
         
-        # 1. Check for manual symbol override (e.g. ELESTE -> ELECTCAST, MAXHEA -> MAXHEALTH)
+        # Normalize common empty or NaN representations to empty string
+        if isin_clean in ["NAN", "NONE", "NULL", "NAT", "UNDEFINED", "N/A", "NA", ""]:
+            isin_clean = ""
+            
+        if symbol_clean in ["NAN", "NONE", "NULL", "NAT", "UNDEFINED", "N/A", "NA", ""]:
+            symbol_clean = ""
+            
+        # A valid ISIN must be exactly 12 characters and completely alphanumeric.
+        # If it is not valid, treat it as empty so we ignore and skip Yahoo Search / cache lookups with "NAN" / "NONE".
+        if isin_clean and (len(isin_clean) != 12 or not isin_clean.isalnum()):
+            logger.info(f"Ignoring invalid ISIN code format: '{isin_clean}'")
+            isin_clean = ""
+        
+        # 1. Check for manual symbol override (e.g. ELESTE -> ELECTCAST, MAXHEA -> MAXHEALTH, VARBEV -> VBL)
         if symbol_clean in SYMBOL_OVERRIDES:
             logger.info(f"Manual Override Match for Symbol Hint: {symbol_clean}")
             return SYMBOL_OVERRIDES[symbol_clean]
             
         # 2. Primary check in cached lists
-        if isin_clean in self.isin_to_symbol:
+        if isin_clean and isin_clean in self.isin_to_symbol:
             return self.isin_to_symbol[isin_clean]
             
         # 3. Secondary check using Yahoo Search API
-        resolved = self.query_yahoo_finance_isin(isin_clean)
-        if resolved:
-            # Cache it in memory for subsequent lookups
-            self.isin_to_symbol[isin_clean] = resolved
-            return resolved
+        if isin_clean:
+            resolved = self.query_yahoo_finance_isin(isin_clean)
+            if resolved:
+                # Cache it in memory for subsequent lookups
+                self.isin_to_symbol[isin_clean] = resolved
+                return resolved
             
         # 4. Fallback to using the symbol hint
         if symbol_hint:

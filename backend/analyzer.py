@@ -288,11 +288,16 @@ class StockAnalyzer:
         roe = info.get("returnOnEquity")
         de = info.get("debtToEquity")
         current_ratio = info.get("currentRatio")
-        div_yield = info.get("dividendYield") # e.g. 0.015 (1.5%) or 1.5
+        div_yield = info.get("dividendYield") # e.g. 0.35 (for 0.35%) or 0.0035 (decimal for 0.35%)
         
-        # Clean div yield to decimal percentage if in full numbers (like 1.83 instead of 0.0183)
-        if div_yield and div_yield > 1.0:
-            div_yield = div_yield / 100.0
+        # yfinance dividendYield is usually returned directly as a percentage (e.g. 0.37 for 0.37%)
+        # but in some environments/versions it might be a decimal (e.g. 0.0037).
+        # Let's normalize it to percentage format (e.g., 0.37).
+        if div_yield:
+            # If it's less than 0.05 (5%), it's highly likely in decimal format (e.g., 0.015 for 1.5%)
+            # since a dividend yield of less than 0.05% is extremely rare and close to zero.
+            if div_yield < 0.05:
+                div_yield = div_yield * 100.0
             
         metrics = {
             "sector": sector,
@@ -448,7 +453,7 @@ class StockAnalyzer:
                 
         # Div yield bonus (up to 5 pts)
         if div_yield and div_yield > 0.0:
-            yield_pct = div_yield * 100
+            yield_pct = div_yield # Already normalized to percentage format (e.g. 0.37 for 0.37%)
             bonus = min(5, int(yield_pct * 1.5))
             fund_score = min(100.0, fund_score + bonus)
             reasons.append(f"Income generation: Dividend Yield provides an extra stable cash return of {yield_pct:.2f}%.")
