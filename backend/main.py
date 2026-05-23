@@ -6,11 +6,13 @@ import uvicorn
 from typing import List, Dict, Any, Optional
 import concurrent.futures
 from pydantic import BaseModel
+import pandas as pd
 
 # Import backend modules
 from symbol_mapper import mapper
 from analyzer import StockAnalyzer
 from excel_parser import ExcelParser
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
