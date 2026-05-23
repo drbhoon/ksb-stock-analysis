@@ -44,12 +44,48 @@ class StockAnalyzer:
         """Runs complete technical and fundamental analysis on a resolved ticker symbol."""
         logger.info(f"Analyzing {ticker_symbol} (is_etf={is_etf})...")
         
+        import time
         try:
             ticker = yf.Ticker(ticker_symbol)
-            info = ticker.info
             
-            # Fetch 1 year of daily historical prices
-            history = ticker.history(period="1y")
+            # 1. Fetch Ticker Info with robust linear backoff retry
+            info = {}
+            for attempt in range(4):
+                try:
+                    info = ticker.info
+                    if info and isinstance(info, dict) and len(info) > 0:
+                        break
+                except Exception as e:
+                    if attempt == 3:
+                        logger.error(f"yfinance info fetch failed permanently after 4 attempts for {ticker_symbol}: {e}")
+                        # Fallback basic info so fundamental analysis doesn't completely crash
+                        info = {
+                            "longName": ticker_symbol,
+                            "sector": "Unknown",
+                            "industry": "Unknown",
+                            "marketCap": 0,
+                            "trailingPE": None
+                        }
+                    else:
+                        sleep_time = (attempt + 1) * 1.5
+                        logger.warning(f"yfinance info fetch failed on attempt {attempt+1} for {ticker_symbol}, retrying in {sleep_time}s... Error: {e}")
+                        time.sleep(sleep_time)
+            
+            # 2. Fetch Ticker History with robust linear backoff retry
+            history = pd.DataFrame()
+            for attempt in range(4):
+                try:
+                    history = ticker.history(period="1y")
+                    if history is not None and not history.empty:
+                        break
+                except Exception as e:
+                    if attempt == 3:
+                        raise ValueError(f"No historical price data returned for {ticker_symbol} after 4 attempts: {e}")
+                    else:
+                        sleep_time = (attempt + 1) * 1.5
+                        logger.warning(f"yfinance history fetch failed on attempt {attempt+1} for {ticker_symbol}, retrying in {sleep_time}s... Error: {e}")
+                        time.sleep(sleep_time)
+            
             if history.empty:
                 raise ValueError(f"No historical price data returned for {ticker_symbol}")
                 
@@ -58,10 +94,10 @@ class StockAnalyzer:
             daily_change = latest_close - prev_close
             daily_change_pct = (daily_change / prev_close) * 100 if prev_close else 0.0
             
-            # 1. Technical Analysis
+            # 3. Technical Analysis
             tech_results = StockAnalyzer._calculate_technical_indicators(history, latest_close)
             
-            # 2. Fundamental Analysis (Skip or customize for ETFs)
+            # 4. Fundamental Analysis (Skip or customize for ETFs)
             fund_results = {}
             if not is_etf:
                 fund_results = StockAnalyzer._analyze_fundamentals(info)
@@ -73,7 +109,7 @@ class StockAnalyzer:
                     "reasoning": ["Fundamental analysis is not applicable to ETFs/Index funds."]
                 }
                 
-            # 3. Combine Scores and Generate Signal
+            # 5. Combine Scores and Generate Signal
             analysis_report = StockAnalyzer._generate_signal(
                 ticker_symbol,
                 info.get("longName") or ticker_symbol,

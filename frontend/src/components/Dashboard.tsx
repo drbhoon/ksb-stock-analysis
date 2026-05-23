@@ -416,6 +416,32 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
           </div>
 
+          {/* Failed Assets Panel */}
+          {portfolioData.failed && portfolioData.failed.length > 0 && (
+            <div className="glass-panel glow-card-crimson" style={{ padding: '20px', marginBottom: '24px', background: 'rgba(239, 68, 68, 0.03)' }}>
+              <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-sell)', fontWeight: 700, marginBottom: '12px' }}>
+                <AlertTriangle size={18} />
+                Failed Asset Mappings ({portfolioData.failed.length})
+              </h4>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '12px' }}>
+                The following listings from your spreadsheet could not be resolved or had temporary query timeouts.
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
+                {portfolioData.failed.map((item: any, idx: number) => (
+                  <div key={idx} style={{ background: 'rgba(0,0,0,0.2)', padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.03)', fontSize: '0.8rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, color: 'var(--text-main)' }}>
+                      <span>Row {item.row_index}: {item.symbol || 'Unknown'}</span>
+                      <span style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>{item.isin}</span>
+                    </div>
+                    <div style={{ color: 'var(--color-sell)', marginTop: '4px', fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.error}>
+                      Error: {item.error}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* 5. Rich Filterable Datagrid */}
           <div className="glass-panel" style={{ padding: '24px', overflow: 'hidden' }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
