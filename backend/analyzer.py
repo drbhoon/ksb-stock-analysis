@@ -139,6 +139,7 @@ class StockAnalyzer:
         """Calculates advanced technical indicators and converts them to signals."""
         prices = history['Close']
         volumes = history['Volume']
+        prev_close = float(prices.iloc[-2]) if len(prices) > 1 else latest_close
         
         # Calculate Moving Averages
         ema_20 = prices.ewm(span=20, adjust=False).mean()
