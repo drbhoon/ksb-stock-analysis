@@ -155,16 +155,20 @@ def generate_plan(amount: float, risk_profile: str, weight_f: float = 0.6, weigh
     logger.info(f"Planner: analysing {len(candidate_symbols)} stocks for profile '{risk_profile}'")
 
     # Analyse in parallel
-    analyzer = StockAnalyzer()
     results = []
 
     def _analyze(sym: str, meta: Dict) -> Dict:
         try:
-            data = analyzer.analyze(sym, is_etf=False)
-            if not data or "error" in data:
+            data = StockAnalyzer.analyze_ticker(
+                sym,
+                is_etf=False,
+                weight_fundamental=weight_f,
+                weight_technical=weight_t
+            )
+            if not data or not data.get("success"):
                 return {}
-            tech = data.get("technical_score", 50.0)
-            fund = data.get("fundamental_score", 50.0)
+            tech = data.get("technical_score", 50.0) or 50.0
+            fund = data.get("fundamental_score", 50.0) or 50.0
             combined = (weight_f * fund) + (weight_t * tech)
             return {
                 "symbol": sym,
