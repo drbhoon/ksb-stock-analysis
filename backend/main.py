@@ -1,7 +1,9 @@
 import logging
 import os
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Header, Depends
+import jwt as pyjwt
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Header, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 import uvicorn
 from typing import List, Dict, Any, Optional
 import concurrent.futures
@@ -14,12 +16,24 @@ from analyzer import StockAnalyzer
 from excel_parser import ExcelParser
 from mf_analyzer import search_schemes, fuzzy_match_fund, score_fund
 from planner import generate_plan
+from database import init_db, upsert_user, get_user, save_portfolio, load_portfolio, delete_portfolio, save_mf_watchlist, load_mf_watchlist, list_all_users
+from auth import (
+    build_google_auth_url, validate_state, exchange_code_for_tokens,
+    get_google_user_info, create_jwt, verify_jwt, extract_bearer_token,
+    verify_admin_password, is_allowed_email,
+    GOOGLE_CLIENT_ID, APP_URL
+)
 
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="General Stock Analysis API", version="1.0.0")
+app = FastAPI(title="Portfolio Analyser API", version="2.0.0")
+
+@app.on_event("startup")
+async def startup_event():
+    init_db()
+    logger.info("Database initialised")
 
 # Setup CORS
 app.add_middleware(
@@ -30,29 +44,171 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Authentication Verification Helper
-def get_current_user(authorization: Optional[str] = Header(None)):
-    correct_password = os.getenv("APP_PASSWORD", "Welcome@123")
-    if authorization == f"Bearer {correct_password}":
-        return True
-    raise HTTPException(status_code=401, detail="Unauthorized access. Invalid or missing password.")
+# ── JWT Auth dependency ───────────────────────────────────────────────────────
 
-class PasswordVerifyRequest(BaseModel):
-    password: str
+def get_current_user(authorization: Optional[str] = Header(None)) -> Dict:
+    """
+    Validates Bearer JWT and returns the user payload {sub, email, name, picture}.
+    Raises HTTP 401 if the token is missing, expired, or invalid.
+    """
+    token = extract_bearer_token(authorization)
+    if not token:
+        raise HTTPException(status_code=401, detail="Authentication required. Please sign in.")
+    try:
+        payload = verify_jwt(token)
+        return payload
+    except pyjwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Session expired. Please sign in again.")
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid authentication token.")
+
+# ── Auth status (used by frontend to decide what login UI to show) ────────────
 
 @app.get("/api/auth/status")
 async def get_auth_status():
-    """Check if app password protection is enabled."""
-    return {"auth_required": True}
+    """Tell the frontend which login method to use."""
+    google_configured = bool(GOOGLE_CLIENT_ID)
+    return {
+        "auth_required": True,
+        "google_login": google_configured,
+        "admin_bypass": bool(os.getenv("ADMIN_PASSWORD", ""))
+    }
 
-@app.post("/api/auth/verify")
-async def verify_password(req: PasswordVerifyRequest):
-    """Verify password and return bearer token."""
-    correct_password = os.getenv("APP_PASSWORD", "Welcome@123")
-    if req.password == correct_password:
-        return {"success": True, "token": correct_password}
-    else:
-        raise HTTPException(status_code=401, detail="Invalid password.")
+# ── Google OAuth endpoints ────────────────────────────────────────────────────
+
+@app.get("/api/auth/google")
+async def google_login():
+    """Redirect the browser to Google's OAuth consent screen."""
+    if not GOOGLE_CLIENT_ID:
+        raise HTTPException(status_code=501, detail="Google OAuth is not configured on this server.")
+    url = build_google_auth_url()
+    return RedirectResponse(url=url)
+
+@app.get("/api/auth/google/callback")
+async def google_callback(code: str = None, state: str = None, error: str = None):
+    """Receive the OAuth code from Google, issue a JWT, redirect to frontend."""
+    frontend_url = APP_URL.rstrip('/')
+
+    if error or not code:
+        return RedirectResponse(url=f"{frontend_url}/?auth_error=google_denied")
+
+    if not validate_state(state or ""):
+        return RedirectResponse(url=f"{frontend_url}/?auth_error=csrf_mismatch")
+
+    # Exchange code → tokens
+    tokens = exchange_code_for_tokens(code)
+    if not tokens or "access_token" not in tokens:
+        return RedirectResponse(url=f"{frontend_url}/?auth_error=token_exchange_failed")
+
+    # Fetch user info from Google
+    user_info = get_google_user_info(tokens["access_token"])
+    if not user_info or "email" not in user_info:
+        return RedirectResponse(url=f"{frontend_url}/?auth_error=userinfo_failed")
+
+    email   = user_info["email"]
+    name    = user_info.get("name", email.split("@")[0])
+    picture = user_info.get("picture", "")
+    sub     = user_info.get("id") or user_info.get("sub") or email
+
+    # Check whitelist
+    if not is_allowed_email(email):
+        logger.warning(f"Blocked login attempt from non-whitelisted email: {email}")
+        return RedirectResponse(url=f"{frontend_url}/?auth_error=not_allowed&email={email}")
+
+    # Create/update user in DB
+    upsert_user(str(sub), email, name, picture)
+
+    # Issue JWT
+    jwt_token = create_jwt(str(sub), email, name, picture)
+    logger.info(f"User logged in: {email}")
+
+    # Redirect to frontend with token in URL (frontend stores it in localStorage)
+    return RedirectResponse(url=f"{frontend_url}/?token={jwt_token}")
+
+# ── Admin password bypass ─────────────────────────────────────────────────────
+
+class AdminLoginRequest(BaseModel):
+    password: str
+
+@app.post("/api/auth/admin-login")
+async def admin_login(req: AdminLoginRequest):
+    """Bypass Google OAuth using the ADMIN_PASSWORD env var (for Dr Bhoon only)."""
+    token = verify_admin_password(req.password)
+    if not token:
+        raise HTTPException(status_code=401, detail="Invalid admin password or admin access is disabled.")
+    return {"success": True, "token": token}
+
+# ── Current user profile ──────────────────────────────────────────────────────
+
+@app.get("/api/auth/me")
+async def get_me(user: Dict = Depends(get_current_user)):
+    """Return the logged-in user's profile."""
+    return {
+        "user_id": user.get("sub"),
+        "email":   user.get("email"),
+        "name":    user.get("name"),
+        "picture": user.get("picture", ""),
+    }
+
+@app.post("/api/auth/logout")
+async def logout():
+    """Client-side logout — just return success (JWT is cleared in browser)."""
+    return {"success": True}
+
+# ── Per-user Portfolio save/load ──────────────────────────────────────────────
+
+class PortfolioSaveRequest(BaseModel):
+    file_name: str = "portfolio"
+    data: Any
+
+@app.post("/api/portfolio/save")
+async def save_user_portfolio(req: PortfolioSaveRequest, user: Dict = Depends(get_current_user)):
+    """Save the user's portfolio analysis to the database."""
+    user_id = user.get("sub")
+    save_portfolio(user_id, req.file_name, req.data)
+    return {"success": True}
+
+@app.get("/api/portfolio/load")
+async def load_user_portfolio(user: Dict = Depends(get_current_user)):
+    """Load the user's saved portfolio from the database."""
+    user_id = user.get("sub")
+    portfolio = load_portfolio(user_id)
+    if not portfolio:
+        return {"found": False}
+    return {"found": True, **portfolio}
+
+@app.delete("/api/portfolio/clear")
+async def clear_user_portfolio(user: Dict = Depends(get_current_user)):
+    """Delete the user's saved portfolio from the database."""
+    user_id = user.get("sub")
+    delete_portfolio(user_id)
+    return {"success": True}
+
+# ── MF Watchlist save/load ────────────────────────────────────────────────────
+
+class MFWatchlistSaveRequest(BaseModel):
+    funds: List[Dict[str, Any]]
+
+@app.post("/api/mf/watchlist")
+async def save_user_mf_watchlist(req: MFWatchlistSaveRequest, user: Dict = Depends(get_current_user)):
+    user_id = user.get("sub")
+    save_mf_watchlist(user_id, req.funds)
+    return {"success": True}
+
+@app.get("/api/mf/watchlist")
+async def load_user_mf_watchlist(user: Dict = Depends(get_current_user)):
+    user_id = user.get("sub")
+    return {"funds": load_mf_watchlist(user_id)}
+
+# ── Admin: list all users (admin-only) ────────────────────────────────────────
+
+@app.get("/api/admin/users")
+async def admin_list_users(user: Dict = Depends(get_current_user)):
+    """Returns all registered users — accessible only to the admin bypass account."""
+    from auth import ADMIN_USER_ID
+    if user.get("sub") != ADMIN_USER_ID:
+        raise HTTPException(status_code=403, detail="Admin access required.")
+    return {"users": list_all_users()}
 
 @app.get("/api/search")
 async def search_stocks(q: str, authenticated: bool = Depends(get_current_user)):
