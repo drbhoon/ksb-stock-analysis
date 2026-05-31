@@ -200,13 +200,12 @@ async def load_user_mf_watchlist(user: Dict = Depends(get_current_user)):
     user_id = user.get("sub")
     return {"funds": load_mf_watchlist(user_id)}
 
-# ── Admin: list all users (admin-only) ────────────────────────────────────────
-
 @app.get("/api/admin/users")
 async def admin_list_users(user: Dict = Depends(get_current_user)):
-    """Returns all registered users — accessible only to the admin bypass account."""
+    """Returns all registered users — accessible to admin bypass or drbhoon@gmail.com."""
     from auth import ADMIN_USER_ID
-    if user.get("sub") != ADMIN_USER_ID:
+    is_admin = (user.get("sub") == ADMIN_USER_ID) or (user.get("email") == "drbhoon@gmail.com")
+    if not is_admin:
         raise HTTPException(status_code=403, detail="Admin access required.")
     return {"users": list_all_users()}
 
