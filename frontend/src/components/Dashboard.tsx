@@ -24,6 +24,7 @@ interface DashboardProps {
   portfolioData: any;
   onUpload: (file: File, weightF: number, weightT: number) => void;
   onSelectStock: (symbol: string, isEtf: boolean) => void;
+  onClearPortfolio: () => void;
   isLoading: boolean;
   weightF: number;
   weightT: number;
@@ -36,6 +37,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   portfolioData,
   onUpload,
   onSelectStock,
+  onClearPortfolio,
   isLoading,
   weightF,
   weightT,
@@ -491,6 +493,28 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <ShieldAlert size={20} style={{ color: 'var(--color-primary)' }} />
                 Recommendations Log
               </h3>
+              <button
+                onClick={onClearPortfolio}
+                title="Clear portfolio and upload a new file"
+                style={{
+                  background: 'rgba(239,68,68,0.08)',
+                  border: '1px solid rgba(239,68,68,0.25)',
+                  color: 'var(--color-sell)',
+                  padding: '6px 14px',
+                  borderRadius: '8px',
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(239,68,68,0.18)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'rgba(239,68,68,0.08)')}
+              >
+                ✕ Clear Portfolio
+              </button>
               
               {/* Filters */}
               <div style={{ display: 'flex', background: 'rgba(255,255,255,0.03)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border-glass)' }}>

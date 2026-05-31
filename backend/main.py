@@ -12,6 +12,8 @@ import pandas as pd
 from symbol_mapper import mapper
 from analyzer import StockAnalyzer
 from excel_parser import ExcelParser
+from mf_analyzer import search_schemes, fuzzy_match_fund, score_fund
+from planner import generate_plan
 
 
 logging.basicConfig(level=logging.INFO)
@@ -91,6 +93,88 @@ async def search_stocks(q: str, authenticated: bool = Depends(get_current_user))
                 break
                 
     return matches
+
+# ── Mutual Fund Endpoints ───────────────────────────────────────────────────
+
+@app.get("/api/mf/search")
+async def search_mutual_funds(q: str, authenticated: bool = Depends(get_current_user)):
+    """Search MFAPI scheme list for matching mutual funds."""
+    if not q or len(q.strip()) < 2:
+        return []
+    return search_schemes(q.strip(), limit=15)
+
+class MFAnalyzeRequest(BaseModel):
+    funds: List[Dict[str, Any]]  # [{scheme_code, scheme_name}]
+
+@app.post("/api/mf/analyze")
+async def analyze_mutual_funds(req: MFAnalyzeRequest, authenticated: bool = Depends(get_current_user)):
+    """Score a list of mutual funds using NAV-based momentum analysis."""
+    results = []
+    errors = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+        futures = {
+            pool.submit(score_fund, f["scheme_code"], f.get("scheme_name", "")): f
+            for f in req.funds if f.get("scheme_code")
+        }
+        for future in concurrent.futures.as_completed(futures):
+            res = future.result()
+            if "error" in res:
+                errors.append(res)
+            else:
+                results.append(res)
+    results.sort(key=lambda x: x.get("score", 0), reverse=True)
+    return {"results": results, "errors": errors}
+
+class MFUploadFuzzyRequest(BaseModel):
+    fund_names: List[str]
+
+@app.post("/api/mf/match")
+async def match_fund_names(req: MFUploadFuzzyRequest, authenticated: bool = Depends(get_current_user)):
+    """Fuzzy-match a list of uploaded fund names to MFAPI scheme codes."""
+    matched = []
+    unmatched = []
+    for name in req.fund_names:
+        result = fuzzy_match_fund(name)
+        if result:
+            matched.append({"input_name": name, **result})
+        else:
+            unmatched.append(name)
+    return {"matched": matched, "unmatched": unmatched}
+
+# ── Smart Planner Endpoint ──────────────────────────────────────────────────
+
+class PlannerRequest(BaseModel):
+    amount: float
+    risk_profile: str  # conservative | moderate | aggressive
+    fundamental_weight: float = 0.60
+    technical_weight: float = 0.40
+
+@app.post("/api/planner/recommend")
+async def get_planner_recommendation(
+    req: PlannerRequest,
+    authenticated: bool = Depends(get_current_user)
+):
+    """Generate a diversified stock portfolio recommendation for a given amount and risk profile."""
+    if req.amount <= 0:
+        raise HTTPException(status_code=400, detail="Investment amount must be greater than zero.")
+    valid_profiles = ["conservative", "moderate", "aggressive"]
+    if req.risk_profile.lower() not in valid_profiles:
+        raise HTTPException(status_code=400, detail=f"risk_profile must be one of: {valid_profiles}")
+    try:
+        plan = generate_plan(
+            amount=req.amount,
+            risk_profile=req.risk_profile.lower(),
+            weight_f=req.fundamental_weight,
+            weight_t=req.technical_weight
+        )
+        if "error" in plan:
+            raise HTTPException(status_code=503, detail=plan["error"])
+        return plan
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Planner recommendation failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Planning failed: {str(e)}")
 
 # In-memory cache for portfolio results to support fast report exports and single analysis checks
 portfolio_cache: Dict[str, Any] = {}

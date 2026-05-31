@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { Dashboard } from './components/Dashboard';
 import { StockDetail } from './components/StockDetail';
 import { SingleStockAnalysis } from './components/SingleStockAnalysis';
+import { MutualFundAnalysis } from './components/MutualFundAnalysis';
+import { SmartPlanner } from './components/SmartPlanner';
 import { PasswordGate } from './components/PasswordGate';
 import { ShieldAlert, TrendingUp, Lock } from 'lucide-react';
 
@@ -13,9 +15,15 @@ function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem('ksb_auth_token'));
   const [authRequired, setAuthRequired] = useState<boolean>(false);
   const [authChecking, setAuthChecking] = useState<boolean>(true);
-  const [currentTab, setCurrentTab] = useState<'PORTFOLIO' | 'SINGLE'>('PORTFOLIO');
+  const [currentTab, setCurrentTab] = useState<'PORTFOLIO' | 'SINGLE' | 'MF' | 'PLANNER'>('PORTFOLIO');
 
-  const [portfolioData, setPortfolioData] = useState<any>(null);
+  // Hydrate portfolio from localStorage on mount
+  const [portfolioData, setPortfolioData] = useState<any>(() => {
+    try {
+      const saved = localStorage.getItem('ksb_portfolio_cache');
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [selectedStock, setSelectedStock] = useState<string | null>(null);
   const [selectedStockDetail, setSelectedStockDetail] = useState<any>(null);
@@ -99,6 +107,14 @@ function App() {
   const handleLogout = () => {
     setToken(null);
     localStorage.removeItem('ksb_auth_token');
+    localStorage.removeItem('ksb_portfolio_cache');
+    setPortfolioData(null);
+    setSelectedStock(null);
+    setSelectedStockDetail(null);
+  };
+
+  const handleClearPortfolio = () => {
+    localStorage.removeItem('ksb_portfolio_cache');
     setPortfolioData(null);
     setSelectedStock(null);
     setSelectedStockDetail(null);
@@ -134,6 +150,8 @@ function App() {
       
       const data = await res.json();
       setPortfolioData(data);
+      // Persist to localStorage so it survives refresh and tab switches
+      try { localStorage.setItem('ksb_portfolio_cache', JSON.stringify(data)); } catch {}
     } catch (err: any) {
       console.error(err);
       setErrorMessage(err.message || 'Network connection failed. Make sure your FastAPI backend is running on port 8000.');
@@ -360,41 +378,36 @@ function App() {
         </div>
 
         {/* Tab switch Navigation pills */}
-        <div style={{ display: 'flex', background: 'rgba(255,255,255,0.03)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border-glass)' }}>
-          <button 
-            onClick={() => setCurrentTab('PORTFOLIO')}
-            style={{
-              background: currentTab === 'PORTFOLIO' ? 'var(--color-primary)' : 'transparent',
-              border: 'none',
-              color: currentTab === 'PORTFOLIO' ? 'white' : 'var(--text-muted)',
-              padding: '8px 18px',
-              borderRadius: '6px',
-              fontSize: '0.85rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              fontFamily: 'var(--font-heading)'
-            }}
-          >
-            Portfolio Analysis
-          </button>
-          <button 
-            onClick={() => setCurrentTab('SINGLE')}
-            style={{
-              background: currentTab === 'SINGLE' ? 'var(--color-primary)' : 'transparent',
-              border: 'none',
-              color: currentTab === 'SINGLE' ? 'white' : 'var(--text-muted)',
-              padding: '8px 18px',
-              borderRadius: '6px',
-              fontSize: '0.85rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              fontFamily: 'var(--font-heading)'
-            }}
-          >
-            Single Stock Analysis
-          </button>
+        <div style={{ display: 'flex', background: 'rgba(255,255,255,0.03)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border-glass)', flexWrap: 'wrap', gap: '2px' }}>
+          {(['PORTFOLIO', 'SINGLE', 'MF', 'PLANNER'] as const).map(tab => {
+            const labels: Record<string, string> = {
+              PORTFOLIO: 'Portfolio',
+              SINGLE: 'Single Stock',
+              MF: 'Mutual Funds',
+              PLANNER: 'Smart Planner'
+            };
+            return (
+              <button
+                key={tab}
+                onClick={() => setCurrentTab(tab)}
+                style={{
+                  background: currentTab === tab ? 'var(--color-primary)' : 'transparent',
+                  border: 'none',
+                  color: currentTab === tab ? 'white' : 'var(--text-muted)',
+                  padding: '8px 14px',
+                  borderRadius: '6px',
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  fontFamily: 'var(--font-heading)',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                {labels[tab]}
+              </button>
+            );
+          })}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>
@@ -449,11 +462,12 @@ function App() {
           </div>
         )}
 
-        {currentTab === 'PORTFOLIO' ? (
+        {currentTab === 'PORTFOLIO' && (
           <Dashboard 
             portfolioData={recalculatedPortfolioData}
             onUpload={handleUpload}
             onSelectStock={handleSelectStock}
+            onClearPortfolio={handleClearPortfolio}
             isLoading={isLoading}
             weightF={weightF}
             weightT={weightT}
@@ -461,13 +475,27 @@ function App() {
             setWeightT={setWeightT}
             marketSummary={marketSummary}
           />
-        ) : (
+        )}
+        {currentTab === 'SINGLE' && (
           <SingleStockAnalysis 
             API_BASE_URL={API_BASE_URL}
             weightF={weightF}
             weightT={weightT}
             onSelectStock={handleSelectStock}
             token={token}
+          />
+        )}
+        {currentTab === 'MF' && (
+          <MutualFundAnalysis
+            API_BASE_URL={API_BASE_URL}
+            token={token}
+          />
+        )}
+        {currentTab === 'PLANNER' && (
+          <SmartPlanner
+            API_BASE_URL={API_BASE_URL}
+            token={token}
+            onSelectStock={handleSelectStock}
           />
         )}
 
