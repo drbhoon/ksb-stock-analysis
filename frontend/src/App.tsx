@@ -464,11 +464,7 @@ function App() {
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       
       {/* Navbar header */}
-      <header className="glass-panel" style={{
-        padding: '16px 40px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
+      <header className="glass-panel app-header" style={{
         borderRadius: '0 0 16px 16px',
         borderTop: 'none',
         position: 'sticky',
@@ -485,7 +481,7 @@ function App() {
         </div>
 
         {/* Tab switch Navigation pills */}
-        <div style={{ display: 'flex', background: 'rgba(255,255,255,0.03)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border-glass)', flexWrap: 'wrap', gap: '2px' }}>
+        <div className="nav-tabs-container">
           {tabs.map(tab => {
             const labels: Record<string, string> = {
               PORTFOLIO: 'Portfolio',
@@ -535,13 +531,13 @@ function App() {
               )}
               <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
                 <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'white', lineHeight: 1.2 }}>{userProfile.name}</span>
-                <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)', lineHeight: 1 }}>{userProfile.email}</span>
+                <span className="user-email" style={{ fontSize: '0.68rem', color: 'var(--text-dim)', lineHeight: 1 }}>{userProfile.email}</span>
               </div>
             </div>
           )}
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '20px', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span className="api-status" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }} />
               API Connected
             </span>
