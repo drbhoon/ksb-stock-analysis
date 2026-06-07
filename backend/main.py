@@ -1,7 +1,7 @@
 import logging
 import os
 import jwt as pyjwt
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Header, Depends, Request
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Header, Depends, Request, Cookie, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 import uvicorn
@@ -36,9 +36,17 @@ async def startup_event():
     logger.info("Database initialised")
 
 # Setup CORS
+_ALLOWED_ORIGINS = [
+    "https://stocks.bhoon.org",
+    "https://peoplescience.bhoon.org",
+    "https://bhoon.org",
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://localhost:8000",
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # In development, allow all. We can narrow this down for production if needed.
+    allow_origins=_ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -46,12 +54,15 @@ app.add_middleware(
 
 # ── JWT Auth dependency ───────────────────────────────────────────────────────
 
-def get_current_user(authorization: Optional[str] = Header(None)) -> Dict:
+def get_current_user(
+    authorization: Optional[str] = Header(None),
+    ksb_sso_token: Optional[str] = Cookie(None),
+) -> Dict:
     """
-    Validates Bearer JWT and returns the user payload {sub, email, name, picture}.
+    Validates Bearer JWT or SSO cookie and returns the user payload {sub, email, name, picture}.
     Raises HTTP 401 if the token is missing, expired, or invalid.
     """
-    token = extract_bearer_token(authorization)
+    token = extract_bearer_token(authorization) or ksb_sso_token
     if not token:
         raise HTTPException(status_code=401, detail="Authentication required. Please sign in.")
     try:
@@ -122,8 +133,20 @@ async def google_callback(code: str = None, state: str = None, error: str = None
     jwt_token = create_jwt(str(sub), email, name, picture)
     logger.info(f"User logged in: {email}")
 
-    # Redirect to frontend with token in URL (frontend stores it in localStorage)
-    return RedirectResponse(url=f"{frontend_url}/?token={jwt_token}")
+    # Redirect to frontend with token in URL AND set cross-subdomain SSO cookie
+    is_prod = os.getenv("NODE_ENV", "production") == "production"
+    response = RedirectResponse(url=f"{frontend_url}/?token={jwt_token}")
+    response.set_cookie(
+        key="ksb_sso_token",
+        value=jwt_token,
+        domain=".bhoon.org" if is_prod else None,
+        path="/",
+        max_age=7 * 24 * 3600,
+        httponly=True,
+        secure=is_prod,
+        samesite="lax",
+    )
+    return response
 
 # ── Admin password bypass ─────────────────────────────────────────────────────
 
@@ -151,8 +174,14 @@ async def get_me(user: Dict = Depends(get_current_user)):
     }
 
 @app.post("/api/auth/logout")
-async def logout():
-    """Client-side logout — just return success (JWT is cleared in browser)."""
+async def logout(response: Response):
+    """Clear the SSO cookie and return success."""
+    is_prod = os.getenv("NODE_ENV", "production") == "production"
+    response.delete_cookie(
+        key="ksb_sso_token",
+        domain=".bhoon.org" if is_prod else None,
+        path="/",
+    )
     return {"success": True}
 
 # ── Per-user Portfolio save/load ──────────────────────────────────────────────
