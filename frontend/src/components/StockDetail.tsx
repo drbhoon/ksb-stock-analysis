@@ -231,7 +231,7 @@ export const StockDetail: React.FC<StockDetailProps> = ({
             </span>
           </h4>
           
-          <div className="gauge-container" style={{ margin: '10px 0' }}>
+          <div className="gauge-container">
             {/* Elegant SVG gauge background arc */}
             <svg width="180" height="90" viewBox="0 0 100 50" style={{ transform: 'rotate(0deg)' }}>
               <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="8" strokeLinecap="round" />
@@ -242,11 +242,12 @@ export const StockDetail: React.FC<StockDetailProps> = ({
             </svg>
             <div className="gauge-needle" style={{ transform: `rotate(${rsiAngle}deg)` }} />
             <div className="gauge-center" />
-            <div className="gauge-value" style={{ 
-              color: rsiVal > 70 ? 'var(--color-sell)' : rsiVal < 30 ? 'var(--color-buy)' : 'var(--text-main)'
-            }}>
-              {rsiVal.toFixed(1)}
-            </div>
+          </div>
+          
+          <div className="gauge-value" style={{ 
+            color: rsiVal > 70 ? 'var(--color-sell)' : rsiVal < 30 ? 'var(--color-buy)' : 'var(--text-main)'
+          }}>
+            {rsiVal.toFixed(1)}
           </div>
           
           <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
