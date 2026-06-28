@@ -68,9 +68,10 @@ def init_db() -> None:
                 user_id                TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                 season                 INTEGER NOT NULL DEFAULT 1,
                 is_active              INTEGER NOT NULL DEFAULT 1,
-                cash                   REAL NOT NULL DEFAULT 50000.0,
+                cash                   REAL NOT NULL DEFAULT 0.0,
                 loan_principal         REAL NOT NULL DEFAULT 0.0,
                 accrued_interest       REAL NOT NULL DEFAULT 0.0,
+                starting_capital       REAL NOT NULL DEFAULT 0.0,
                 last_interest_accrual  TEXT NOT NULL DEFAULT (datetime('now')),
                 created_at             TEXT DEFAULT (datetime('now')),
                 updated_at             TEXT DEFAULT (datetime('now')),
@@ -124,6 +125,33 @@ def init_db() -> None:
             );
         """)
     logger.info(f"Database initialised at {DB_PATH}")
+
+    # Migration: Add starting_capital to game_portfolios if not present
+    with _get_conn() as conn:
+        cursor = conn.execute("PRAGMA table_info(game_portfolios)")
+        columns = [row["name"] for row in cursor.fetchall()]
+        if "starting_capital" not in columns:
+            logger.info("Migrating database: adding 'starting_capital' column to game_portfolios")
+            conn.execute("ALTER TABLE game_portfolios ADD COLUMN starting_capital REAL NOT NULL DEFAULT 0.0")
+            
+            # 1. Closed seasons: all existing closed seasons started with 50,000.0
+            conn.execute("""
+                UPDATE game_portfolios
+                SET starting_capital = 50000.0
+                WHERE is_active = 0
+            """)
+            
+            # 2. Active seasons: if not migrated yet (cash in 50k/60k and loan in 0/10k)
+            conn.execute("""
+                UPDATE game_portfolios
+                SET starting_capital = 50000.0
+                WHERE is_active = 1 
+                  AND cash IN (50000.0, 60000.0) 
+                  AND loan_principal IN (0.0, 10000.0)
+            """)
+            
+            conn.commit()
+            logger.info("Database migration completed.")
 
 
 # ── User operations ───────────────────────────────────────────────────────────

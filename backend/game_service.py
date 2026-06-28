@@ -252,8 +252,8 @@ def get_portfolio_summary(user_id: str) -> Dict[str, Any]:
         if not row:
             # Create first season portfolio with 0 starting cash and 0 starting loan
             conn.execute("""
-                INSERT INTO game_portfolios (user_id, season, cash, loan_principal)
-                VALUES (?, 1, 0.0, 0.0)
+                INSERT INTO game_portfolios (user_id, season, cash, loan_principal, starting_capital)
+                VALUES (?, 1, 0.0, 0.0, 0.0)
             """, (user_id,))
             conn.commit()
             
@@ -271,7 +271,7 @@ def get_portfolio_summary(user_id: str) -> Dict[str, Any]:
             if holdings_count == 0 and tx_count <= 1:
                 conn.execute("""
                     UPDATE game_portfolios 
-                    SET cash = 0.0, loan_principal = 0.0, last_interest_accrual = datetime('now')
+                    SET cash = 0.0, loan_principal = 0.0, starting_capital = 0.0, last_interest_accrual = datetime('now')
                     WHERE id = ?
                 """, (portfolio_id,))
                 conn.execute("DELETE FROM game_transactions WHERE portfolio_id = ?", (portfolio_id,))
@@ -316,11 +316,11 @@ def get_portfolio_summary(user_id: str) -> Dict[str, Any]:
         net_worth = cash + holdings_value - interest
         
         # Calculate P&L for this season (own capital is net worth minus loan principal)
-        season_pnl = net_worth - loan - STARTING_CAPITAL
+        season_pnl = net_worth - loan - portfolio.get("starting_capital", 0.0)
         
         # Calculate Lifetime P&L (closed past seasons final return + current season return)
         past_seasons = conn.execute("""
-            SELECT cash, loan_principal, accrued_interest, is_active FROM game_portfolios 
+            SELECT cash, loan_principal, accrued_interest, starting_capital, is_active FROM game_portfolios 
             WHERE user_id = ? AND is_active = 0
         """, (user_id,)).fetchall()
         
@@ -328,9 +328,9 @@ def get_portfolio_summary(user_id: str) -> Dict[str, Any]:
         for ps in past_seasons:
             # For closed seasons, net worth at close is stored in the final cash balance 
             # (since holdings were liquidated, and loan/interest settled upon restart).
-            lifetime_pnl += (ps["cash"] - STARTING_CAPITAL)
+            lifetime_pnl += (ps["cash"] - ps["starting_capital"])
             
-        loan_headroom = max(0.0, (EXPOSURE_CAP - STARTING_CAPITAL) - loan)
+        loan_headroom = max(0.0, (EXPOSURE_CAP - portfolio.get("starting_capital", 0.0)) - loan)
         
         return {
             "id": portfolio_id,
@@ -396,8 +396,8 @@ def restart_portfolio(user_id: str) -> int:
         # 4. Insert new season portfolio with 0 starting cash and 0 starting loan
         new_season = season + 1
         conn.execute("""
-            INSERT INTO game_portfolios (user_id, season, cash, loan_principal)
-            VALUES (?, ?, 0.0, 0.0)
+            INSERT INTO game_portfolios (user_id, season, cash, loan_principal, starting_capital)
+            VALUES (?, ?, 0.0, 0.0, 0.0)
         """, (user_id, new_season))
         
         conn.commit()
@@ -665,7 +665,7 @@ def draw_loan_funds(user_id: str, amount: float) -> Dict[str, Any]:
         loan = row["loan_principal"]
         
         # Validate Cap: loan principal cannot exceed ₹50,000 (exposure ₹1,00,000 cap inclusive of ₹50,000 capital)
-        max_loan_allowed = EXPOSURE_CAP - STARTING_CAPITAL
+        max_loan_allowed = EXPOSURE_CAP - row["starting_capital"]
         if loan + amount > max_loan_allowed:
             raise ValueError(f"Borrowing cap breached. Maximum loan headroom is ₹{max_loan_allowed - loan:,.2f}")
             
