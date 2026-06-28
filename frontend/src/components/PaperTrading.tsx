@@ -61,9 +61,10 @@ interface SearchResult {
 interface PaperTradingProps {
   API_BASE_URL: string;
   token: string | null;
+  isAdmin: boolean;
 }
 
-export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token }) => {
+export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token, isAdmin }) => {
   // State
   const [summary, setSummary] = useState<PortfolioSummary | null>(null);
   const [holdings, setHoldings] = useState<Holding[]>([]);
@@ -310,7 +311,7 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token 
 
   // Reset Game Season
   const handleResetGame = async () => {
-    if (!window.confirm("Are you sure you want to restart your portfolio? Your current holdings will be liquidated, loan settled, and a new season will start with ₹50,000. Your prior P&L history will be saved to your Lifetime P&L.")) {
+    if (!window.confirm("Are you sure you want to restart your portfolio? Your current holdings will be liquidated, loan settled, and a new season will start with ₹0 cash and ₹0 loan. Your prior P&L history will be saved to your Lifetime P&L.")) {
       return;
     }
 
@@ -363,7 +364,7 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token 
   const dailyInterest = summary.loan_principal * (0.01 / 30.0);
   const totalValue = summary.holdings_value;
   const isLoss = summary.season_pnl < 0;
-  const netWorthReturn = ((summary.net_worth - 50000) / 50000) * 100;
+  const netWorthReturn = (summary.season_pnl / 50000) * 100;
 
   return (
     <div style={{ padding: '32px 40px', maxWidth: '1440px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '28px' }}>
@@ -409,13 +410,15 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token 
             <RefreshCw size={14} className={isRefreshing ? 'spin' : ''} />
           </button>
           
-          <button
-            onClick={handleResetGame}
-            className="btn-secondary"
-            style={{ padding: '9px 16px', borderRadius: '10px', color: 'var(--color-sell)', border: '1px solid rgba(239, 68, 68, 0.2)' }}
-          >
-            Reset Game
-          </button>
+          {isAdmin && (
+            <button
+              onClick={handleResetGame}
+              className="btn-secondary"
+              style={{ padding: '9px 16px', borderRadius: '10px', color: 'var(--color-sell)', border: '1px solid rgba(239, 68, 68, 0.2)' }}
+            >
+              Reset Game
+            </button>
+          )}
         </div>
       </div>
 

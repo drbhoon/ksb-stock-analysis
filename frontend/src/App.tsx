@@ -642,6 +642,7 @@ function App() {
           <PaperTrading
             API_BASE_URL={API_BASE_URL}
             token={token}
+            isAdmin={isAdmin}
           />
         )}
 

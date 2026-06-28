@@ -629,6 +629,10 @@ async def game_portfolio(user: Dict = Depends(get_current_user)):
 
 @app.post("/api/game/portfolio/restart")
 async def game_portfolio_restart(user: Dict = Depends(get_current_user)):
+    from auth import ADMIN_USER_ID
+    is_admin = (user.get("sub") == ADMIN_USER_ID) or (user.get("email") == "drbhoon@gmail.com")
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required to restart game.")
     try:
         new_season = game_service.restart_portfolio(user["sub"])
         return {
