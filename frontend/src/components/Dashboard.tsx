@@ -137,7 +137,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   }, [portfolioData]);
 
   return (
-    <div style={{ maxWidth: '1440px', margin: '0 auto', padding: '24px 20px' }}>
+    <div className="dashboard-shell" style={{ maxWidth: '1440px', margin: '0 auto', padding: '24px 20px' }}>
       {/* 1. Market Strip */}
       {marketSummary && marketSummary.length > 0 && (
         <div style={{ display: 'flex', gap: '16px', overflowX: 'auto', marginBottom: '24px', paddingBottom: '8px' }}>
@@ -167,8 +167,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
       )}
 
       {/* 2. Top Centered Heading */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: '36px', position: 'relative' }}>
-        <h1 style={{ 
+      <div className="dashboard-hero" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: '36px', position: 'relative' }}>
+        <h1 className="dashboard-title" style={{ 
           fontSize: '2.8rem', 
           fontWeight: 800, 
           background: 'linear-gradient(135deg, #fff 30%, var(--text-muted) 100%)', 
@@ -195,7 +195,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       {/* 3. Settings Drawer/Panel */}
       {showSettings && (
-        <div className="glass-panel glow-active" style={{ padding: '24px', marginBottom: '24px', borderLeft: '4px solid var(--color-primary)' }}>
+        <div className="glass-panel glow-active settings-panel" style={{ padding: '24px', marginBottom: '24px', borderLeft: '4px solid var(--color-primary)' }}>
           <h3 style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Settings size={20} className="text-glow-primary" />
             Adjust Portfolio Signal Weights
@@ -251,7 +251,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       {/* 4. Main Body: Uploader or Dashboard Stats */}
       {!portfolioData && !isLoading ? (
         // Initial Uploader State
-        <div className="glass-panel" style={{ padding: '60px 40px', maxWidth: '640px', margin: '40px auto' }}>
+        <div className="glass-panel upload-panel" style={{ padding: '60px 40px', maxWidth: '640px', margin: '40px auto' }}>
           <div 
             className={`dropzone ${dragActive ? 'active' : ''}`}
             onDragEnter={handleDrag}
@@ -266,7 +266,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', maxWidth: '400px', margin: '0 auto' }}>
               Drag and drop your portfolio Excel (.xlsx, .xls) or CSV file here, or click to browse files.
             </p>
-            <div style={{ margin: '16px 0', fontSize: '0.75rem', color: 'var(--text-dim)', display: 'flex', gap: '16px' }}>
+            <div className="upload-feature-list" style={{ margin: '16px 0', fontSize: '0.75rem', color: 'var(--text-dim)', display: 'flex', gap: '16px' }}>
               <span>✓ Auto ISIN Resolution</span>
               <span>✓ Technical indicators</span>
               <span>✓ Valuation scores</span>
@@ -315,7 +315,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         // Portfolio Analysis Visual Dashboard
         <div>
           {/* Summary Metric Cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '32px' }}>
+          <div className="summary-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '32px' }}>
             <div className="glass-panel" style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '20px' }}>
               <div style={{ background: 'rgba(59, 130, 246, 0.1)', color: 'var(--color-primary)', padding: '16px', borderRadius: '12px' }}>
                 <Activity size={24} />
@@ -373,7 +373,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
 
           {/* Core Grid: Donut Distribution Chart & File Upload Re-dropzone */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px', marginBottom: '32px' }}>
+          <div className="dashboard-main-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px', marginBottom: '32px' }}>
             {/* Donut graphic */}
             <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
               <h3 style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem' }}>
@@ -381,7 +381,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 Signal Allocation Breakdown
               </h3>
               
-              <div style={{ display: 'flex', alignItems: 'center', gap: '40px', padding: '10px' }}>
+              <div className="signal-allocation" style={{ display: 'flex', alignItems: 'center', gap: '40px', padding: '10px' }}>
                 <div style={{ position: 'relative', width: '120px', height: '120px' }}>
                   {/* Custom elegant SVG Circle Ring representing distribution */}
                   <svg width="120" height="120" viewBox="0 0 42 42" style={{ transform: 'rotate(-90deg)', width: '100%', height: '100%' }}>
@@ -488,7 +488,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
           {/* 5. Rich Filterable Datagrid */}
           <div className="glass-panel" style={{ padding: '24px', overflow: 'hidden' }}>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+            <div className="recommendation-controls" style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
               <h3 style={{ fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <ShieldAlert size={20} style={{ color: 'var(--color-primary)' }} />
                 Recommendations Log
@@ -541,6 +541,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
               {/* Search Bar */}
               <input 
+                className="recommendation-search"
                 type="text" 
                 placeholder="Search by symbol, company, ISIN..."
                 value={searchQuery}

@@ -19,7 +19,7 @@ export const StockDetail: React.FC<StockDetailProps> = ({
 
   if (isLoading) {
     return (
-      <div className="glass-panel" style={{ position: 'fixed', top: 0, right: 0, width: '600px', height: '100vh', zIndex: 100, padding: '40px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+      <div className="glass-panel stock-detail-drawer stock-detail-loading" style={{ position: 'fixed', top: 0, right: 0, width: '600px', height: '100vh', zIndex: 100, padding: '40px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
         <div className="glow-active" style={{ width: '60px', height: '60px', borderRadius: '50%', border: '4px solid rgba(59, 130, 246, 0.1)', borderTopColor: 'var(--color-primary)', animation: 'spin 1.2s linear infinite' }} />
         <h3 style={{ marginTop: '20px' }}>Loading Quantitative Analytics...</h3>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Fetching full history data and indicator arrays...</p>
@@ -61,7 +61,7 @@ export const StockDetail: React.FC<StockDetailProps> = ({
   const rsiAngle = ((rsiVal / 100) * 180) - 90;
 
   return (
-    <div className="glass-panel glow-active" style={{
+    <div className="glass-panel glow-active stock-detail-drawer" style={{
       position: 'fixed',
       top: 0,
       right: 0,
@@ -76,12 +76,12 @@ export const StockDetail: React.FC<StockDetailProps> = ({
       overflowY: 'auto'
     }}>
       {/* 1. Drawer Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '24px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+      <div className="stock-detail-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '24px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <div>
           <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', fontWeight: 700 }}>
             {is_etf ? 'Exchange Traded Fund (ETF)' : `${industry || 'Equity'}`}
           </span>
-          <h2 style={{ fontSize: '1.6rem', fontWeight: 800, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <h2 className="stock-detail-title" style={{ fontSize: '1.6rem', fontWeight: 800, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             {symbol}
             <span style={{ fontSize: '1rem', color: 'var(--text-muted)', fontWeight: 400 }}>| {company_name}</span>
           </h2>
@@ -106,7 +106,7 @@ export const StockDetail: React.FC<StockDetailProps> = ({
       </div>
 
       {/* 2. Banner Signal Panel */}
-      <div style={{ padding: '24px', display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '20px', background: 'rgba(255,255,255,0.01)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+      <div className="stock-signal-panel" style={{ padding: '24px', display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '20px', background: 'rgba(255,255,255,0.01)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
         <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
           <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>RECOMMENDATION OUTLOOK</span>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', marginTop: '6px' }}>
@@ -123,7 +123,7 @@ export const StockDetail: React.FC<StockDetailProps> = ({
         </div>
 
         {/* Big Price Tag */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center', borderLeft: '1px solid rgba(255,255,255,0.06)', paddingLeft: '20px' }}>
+        <div className="stock-price-panel" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center', borderLeft: '1px solid rgba(255,255,255,0.06)', paddingLeft: '20px' }}>
           <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>LAST TRADING PRICE</span>
           <h2 style={{ fontSize: '2.2rem', fontWeight: 800, marginTop: '4px', fontFamily: 'var(--font-heading)' }}>
             ₹{latest_price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -145,7 +145,7 @@ export const StockDetail: React.FC<StockDetailProps> = ({
 
       {/* 3. Interactive Price Chart */}
       <div style={{ padding: '24px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+        <div className="chart-toolbar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
           <h3 style={{ fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <BarChart2 size={16} style={{ color: 'var(--color-primary)' }} />
             1-Year Technical Performance Chart
@@ -216,7 +216,7 @@ export const StockDetail: React.FC<StockDetailProps> = ({
       </div>
 
       {/* 4. Analysis Breakdown Grid */}
-      <div style={{ padding: '24px', display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '24px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+      <div className="stock-breakdown-grid" style={{ padding: '24px', display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '24px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         {/* Technical Gauge Panel */}
         <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <h4 style={{ fontSize: '0.9rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '6px', width: '100%' }}>

@@ -236,10 +236,10 @@ export const MutualFundAnalysis: React.FC<Props> = ({ API_BASE_URL, token }) => 
   const sellCount = results.filter(r => r.signal === 'SELL').length;
 
   return (
-    <div style={{ padding: '32px 40px', maxWidth: '1400px', margin: '0 auto' }}>
+    <div className="analysis-shell mf-shell" style={{ padding: '32px 40px', maxWidth: '1400px', margin: '0 auto' }}>
       {/* Page header */}
       <div style={{ marginBottom: '28px' }}>
-        <h1 style={{ fontSize: '1.8rem', fontWeight: 800, fontFamily: 'var(--font-heading)', marginBottom: '6px' }}>
+        <h1 className="page-title" style={{ fontSize: '1.8rem', fontWeight: 800, fontFamily: 'var(--font-heading)', marginBottom: '6px' }}>
           Mutual Fund <span style={{ color: 'var(--color-primary)' }}>Analysis</span>
         </h1>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
@@ -248,7 +248,7 @@ export const MutualFundAnalysis: React.FC<Props> = ({ API_BASE_URL, token }) => 
       </div>
 
       {/* Sub-tab toggle */}
-      <div style={{ display: 'flex', background: 'rgba(255,255,255,0.03)', padding: '4px', borderRadius: '10px', border: '1px solid var(--border-glass)', width: 'fit-content', marginBottom: '28px' }}>
+      <div className="segmented-control" style={{ display: 'flex', background: 'rgba(255,255,255,0.03)', padding: '4px', borderRadius: '10px', border: '1px solid var(--border-glass)', width: 'fit-content', marginBottom: '28px' }}>
         {(['SEARCH', 'UPLOAD'] as const).map(t => (
           <button
             key={t}

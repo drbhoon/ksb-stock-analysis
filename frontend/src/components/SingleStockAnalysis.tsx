@@ -241,11 +241,11 @@ export const SingleStockAnalysis: React.FC<SingleStockAnalysisProps> = ({
   };
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px 20px' }}>
+    <div className="analysis-shell" style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px 20px' }}>
       
       {/* Centered Heading */}
       <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-        <h1 style={{ 
+        <h1 className="page-title" style={{ 
           fontSize: '2.5rem', 
           fontWeight: 800, 
           background: 'linear-gradient(135deg, #fff 30%, var(--text-muted) 100%)', 
@@ -373,7 +373,7 @@ export const SingleStockAnalysis: React.FC<SingleStockAnalysisProps> = ({
 
       {/* 4. Action Banner for Exporter (When length >= 5) */}
       {recalculatedStocks.length >= 5 && !(showDropdown && searchResults.length > 0) && (
-        <div className="glass-panel glow-card-emerald animate-pulse-card" style={{
+        <div className="glass-panel glow-card-emerald animate-pulse-card action-banner" style={{
           padding: '20px 24px',
           borderRadius: '12px',
           marginBottom: '24px',

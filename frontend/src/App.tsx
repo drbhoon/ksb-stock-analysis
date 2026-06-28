@@ -514,7 +514,7 @@ function App() {
           })}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+        <div className="app-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
           {userProfile && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(255,255,255,0.03)', padding: '6px 12px', borderRadius: '20px', border: '1px solid var(--border-glass)' }}>
               {userProfile.picture ? (
@@ -536,7 +536,7 @@ function App() {
             </div>
           )}
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '20px', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+          <div className="app-status-actions" style={{ display: 'flex', alignItems: 'center', gap: '20px', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>
             <span className="api-status" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }} />
               API Connected
@@ -558,7 +558,7 @@ function App() {
       <main style={{ flex: '1', position: 'relative' }}>
         {/* Universal Error Message toast */}
         {errorMessage && (
-          <div className="glass-panel" style={{
+          <div className="glass-panel app-error-toast" style={{
             maxWidth: '640px',
             margin: '24px auto 0',
             padding: '16px 24px',
