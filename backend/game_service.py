@@ -12,8 +12,8 @@ from symbol_mapper import mapper
 logger = logging.getLogger(__name__)
 
 # Game Configuration Defaults
-STARTING_CAPITAL = 50000.0
-EXPOSURE_CAP = 100000.0
+STARTING_CAPITAL = 0.0
+EXPOSURE_CAP = 50000.0
 INTEREST_RATE_MONTHLY = 0.01
 SLIPPAGE_RATE = 0.001
 BUST_THRESHOLD = 0.0
@@ -250,18 +250,11 @@ def get_portfolio_summary(user_id: str) -> Dict[str, Any]:
         """, (user_id,)).fetchone()
         
         if not row:
-            # Create first season portfolio with ₹50,000 capital + ₹10,000 initial loan
-            cursor = conn.execute("""
-                INSERT INTO game_portfolios (user_id, season, cash, loan_principal)
-                VALUES (?, 1, ?, 10000.0)
-            """, (user_id, STARTING_CAPITAL + 10000.0))
-            new_portfolio_id = cursor.lastrowid
-            
-            # Log the initial loan drawdown transaction so it shows in the ledger
+            # Create first season portfolio with 0 starting cash and 0 starting loan
             conn.execute("""
-                INSERT INTO game_transactions (portfolio_id, type, amount)
-                VALUES (?, 'LOAN_DRAW', 10000.0)
-            """, (new_portfolio_id,))
+                INSERT INTO game_portfolios (user_id, season, cash, loan_principal)
+                VALUES (?, 1, 0.0, 0.0)
+            """, (user_id,))
             conn.commit()
             
             row = conn.execute("""
@@ -271,20 +264,17 @@ def get_portfolio_summary(user_id: str) -> Dict[str, Any]:
         portfolio = dict(row)
         portfolio_id = portfolio["id"]
         
-        # Upgrade migration for existing portfolios created with ₹50,000 cash and ₹0 loan
-        if portfolio["cash"] == 50000.0 and portfolio["loan_principal"] == 0.0:
+        # Upgrade migration to zero starting capital model
+        if portfolio["cash"] in [50000.0, 60000.0] and portfolio["loan_principal"] in [0.0, 10000.0]:
             holdings_count = conn.execute("SELECT COUNT(*) as count FROM game_holdings WHERE portfolio_id = ?", (portfolio_id,)).fetchone()["count"]
             tx_count = conn.execute("SELECT COUNT(*) as count FROM game_transactions WHERE portfolio_id = ?", (portfolio_id,)).fetchone()["count"]
-            if holdings_count == 0 and tx_count == 0:
+            if holdings_count == 0 and tx_count <= 1:
                 conn.execute("""
                     UPDATE game_portfolios 
-                    SET cash = 60000.0, loan_principal = 10000.0, last_interest_accrual = datetime('now')
+                    SET cash = 0.0, loan_principal = 0.0, last_interest_accrual = datetime('now')
                     WHERE id = ?
                 """, (portfolio_id,))
-                conn.execute("""
-                    INSERT INTO game_transactions (portfolio_id, type, amount)
-                    VALUES (?, 'LOAN_DRAW', 10000.0)
-                """, (portfolio_id,))
+                conn.execute("DELETE FROM game_transactions WHERE portfolio_id = ?", (portfolio_id,))
                 conn.commit()
                 # Reload portfolio dict
                 row = conn.execute("SELECT * FROM game_portfolios WHERE id = ?", (portfolio_id,)).fetchone()
@@ -319,14 +309,14 @@ def get_portfolio_summary(user_id: str) -> Dict[str, Any]:
             except Exception as e:
                 logger.error(f"Error valuing holding {h['symbol']}: {e}")
                 
-        # 4. Calculate Net Worth
+        # 4. Calculate Net Worth (loan is not subtracted from net worth assets)
         cash = portfolio["cash"]
         loan = portfolio["loan_principal"]
         interest = portfolio["accrued_interest"]
-        net_worth = cash + holdings_value - loan - interest
+        net_worth = cash + holdings_value - interest
         
-        # Calculate P&L for this season
-        season_pnl = net_worth - STARTING_CAPITAL
+        # Calculate P&L for this season (own capital is net worth minus loan principal)
+        season_pnl = net_worth - loan - STARTING_CAPITAL
         
         # Calculate Lifetime P&L (closed past seasons final return + current season return)
         past_seasons = conn.execute("""
@@ -353,7 +343,7 @@ def get_portfolio_summary(user_id: str) -> Dict[str, Any]:
             "season_pnl": season_pnl,
             "lifetime_pnl": lifetime_pnl,
             "loan_headroom": loan_headroom,
-            "is_bust": net_worth <= BUST_THRESHOLD
+            "is_bust": (net_worth < BUST_THRESHOLD) or (net_worth == BUST_THRESHOLD and (loan > 0.0 or holdings_value > 0.0))
         }
 
 def restart_portfolio(user_id: str) -> int:
@@ -388,8 +378,8 @@ def restart_portfolio(user_id: str) -> int:
             except Exception as e:
                 logger.error(f"Error valuing holding {h['symbol']} on restart: {e}")
                 
-        # Net worth at the moment of restart
-        final_net_worth = cash + holdings_value - loan - interest
+        # Net worth at the moment of restart (own capital to archive is net worth minus loan principal)
+        final_net_worth = cash + holdings_value - interest - loan
         
         # 3. Clean up database state for old portfolio
         # Delete holdings for this old season (since they are liquidated)
@@ -403,19 +393,12 @@ def restart_portfolio(user_id: str) -> int:
             WHERE id = ?
         """, (final_net_worth, portfolio_id))
         
-        # 4. Insert new season portfolio with ₹50,000 capital + ₹10,000 initial loan
+        # 4. Insert new season portfolio with 0 starting cash and 0 starting loan
         new_season = season + 1
-        cursor = conn.execute("""
-            INSERT INTO game_portfolios (user_id, season, cash, loan_principal)
-            VALUES (?, ?, ?, 10000.0)
-        """, (user_id, new_season, STARTING_CAPITAL + 10000.0))
-        new_portfolio_id = cursor.lastrowid
-        
-        # Log the initial loan drawdown transaction so it shows in the ledger
         conn.execute("""
-            INSERT INTO game_transactions (portfolio_id, type, amount)
-            VALUES (?, 'LOAN_DRAW', 10000.0)
-        """, (new_portfolio_id,))
+            INSERT INTO game_portfolios (user_id, season, cash, loan_principal)
+            VALUES (?, ?, 0.0, 0.0)
+        """, (user_id, new_season))
         
         conn.commit()
         return new_season
@@ -826,7 +809,7 @@ def save_daily_snapshot_job() -> None:
                 except Exception:
                     pass
                     
-            net_worth = cash + holdings_value - loan - interest
+            net_worth = cash + holdings_value - interest
             
             # Insert daily snapshot
             conn.execute("""
@@ -899,7 +882,7 @@ def lazy_backfill_snapshots(portfolio_id: int, conn: sqlite3.Connection) -> None
         cash = portfolio["cash"]
         loan = portfolio["loan_principal"]
         interest = portfolio["accrued_interest"]
-        net_worth = cash + holdings_value - loan - interest
+        net_worth = cash + holdings_value - interest
         
         conn.execute("""
             INSERT OR IGNORE INTO game_daily_snapshots (portfolio_id, date, cash, holdings_value, loan_principal, accrued_interest, net_worth)

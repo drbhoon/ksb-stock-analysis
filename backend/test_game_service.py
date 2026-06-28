@@ -47,31 +47,36 @@ class TestGameService(unittest.TestCase):
         mock_market.return_value = True
         mock_price.return_value = 2000.0
         
-        # 1. Fetching a new portfolio creates season 1 with 60,000 cash (50k capital + 10k loan)
+        # 1. Fetching a new portfolio creates season 1 with 0 cash and 0 loan
         summary = game_service.get_portfolio_summary('test-user')
         self.assertEqual(summary["season"], 1)
-        self.assertEqual(summary["cash"], 60000.0)
-        self.assertEqual(summary["loan_principal"], 10000.0)
-        self.assertAlmostEqual(summary["net_worth"], 50000.0, places=1) # net worth is 60k cash - 10k loan = 50k
-        self.assertAlmostEqual(summary["lifetime_pnl"], 0.0, places=1)
+        self.assertEqual(summary["cash"], 0.0)
+        self.assertEqual(summary["loan_principal"], 0.0)
+        self.assertEqual(summary["net_worth"], 0.0)
+        self.assertEqual(summary["lifetime_pnl"], 0.0)
         
-        # Buy 5 shares of a stock
+        # Borrow ₹15,000
+        game_service.draw_loan_funds('test-user', 15000.0)
+        
+        # Buy 5 shares of a stock (total 10,000 + 10 fee = 10,010 cost)
         game_service.execute_trade('test-user', 'RELIANCE.NS', 'BUY', 5)
         
-        # Net worth should stay approximately ₹50,000 (minus ₹10 transaction fee)
+        # Net worth should stay approximately ₹14,990 (cash 4,990 + holdings 10,000)
         summary = game_service.get_portfolio_summary('test-user')
-        self.assertAlmostEqual(summary["net_worth"], 49990.0, places=1) # 5 * 2000 * 0.001 = 10 fee
+        self.assertAlmostEqual(summary["net_worth"], 14990.0, places=1)
+        # Season P&L should be -10 (net worth 14,990 - loan 15,000)
+        self.assertAlmostEqual(summary["season_pnl"], -10.0, places=1)
         
         # 2. Restarting deactivates current season and preserves lifetime P&L
         new_season = game_service.restart_portfolio('test-user')
         self.assertEqual(new_season, 2)
         
-        # New season portfolio should have ₹60,000 cash, 10,000 loan, 0 holdings
+        # New season portfolio should have ₹0 cash, 0 loan, 0 holdings
         summary = game_service.get_portfolio_summary('test-user')
         self.assertEqual(summary["season"], 2)
-        self.assertEqual(summary["cash"], 60000.0)
-        self.assertEqual(summary["loan_principal"], 10000.0)
-        self.assertAlmostEqual(summary["net_worth"], 50000.0, places=1)
+        self.assertEqual(summary["cash"], 0.0)
+        self.assertEqual(summary["loan_principal"], 0.0)
+        self.assertEqual(summary["net_worth"], 0.0)
         
         # Lifetime P&L should reflect the ₹10 loss from season 1
         self.assertAlmostEqual(summary["lifetime_pnl"], -10.0, places=1)
@@ -82,8 +87,9 @@ class TestGameService(unittest.TestCase):
         mock_market.return_value = True
         mock_price.return_value = 2000.0
         
-        # Initialize portfolio
+        # Initialize portfolio and borrow ₹50,000
         game_service.get_portfolio_summary('test-user')
+        game_service.draw_loan_funds('test-user', 50000.0)
         
         # 1. BUY trade reduces cash and includes 0.1% fee
         # Buy 10 shares of RELIANCE.NS at ₹2000. Total trade: 20,000. Fee: 20. Total cash reduction: 20,020.
@@ -91,7 +97,7 @@ class TestGameService(unittest.TestCase):
         self.assertTrue(res["success"])
         
         summary = game_service.get_portfolio_summary('test-user')
-        self.assertEqual(summary["cash"], 60000.0 - 20020.0)
+        self.assertEqual(summary["cash"], 50000.0 - 20020.0)
         
         # Average buy price should be execution price (excluding fee)
         holdings = game_service.get_holdings_list('test-user')
@@ -116,7 +122,7 @@ class TestGameService(unittest.TestCase):
         res = game_service.execute_trade('test-user', 'RELIANCE.NS', 'SELL', 5)
         self.assertTrue(res["success"])
         
-        expected_cash = (60000.0 - 20020.0 - (2100.0 * 10 * 1.001)) + 10989.0
+        expected_cash = (50000.0 - 20020.0 - (2100.0 * 10 * 1.001)) + 10989.0
         summary = game_service.get_portfolio_summary('test-user')
         self.assertAlmostEqual(summary["cash"], expected_cash)
 
@@ -127,6 +133,8 @@ class TestGameService(unittest.TestCase):
         mock_price.return_value = 2000.0
         
         game_service.get_portfolio_summary('test-user')
+        # borrow to have cash
+        game_service.draw_loan_funds('test-user', 50000.0)
         
         # Sell without holding any shares
         with self.assertRaises(ValueError) as ctx:
@@ -147,6 +155,8 @@ class TestGameService(unittest.TestCase):
         mock_price.return_value = 2000.0
         
         game_service.get_portfolio_summary('test-user')
+        # borrow to have cash
+        game_service.draw_loan_funds('test-user', 30000.0)
         
         # Placing a trade off hours queues it in database instead of rejecting!
         res = game_service.execute_trade('test-user', 'RELIANCE.NS', 'BUY', 5)
@@ -191,15 +201,14 @@ class TestGameService(unittest.TestCase):
         game_service.get_portfolio_summary('test-user')
         
         # 1. Borrow virtual cash
-        # Initial loan is 10k, borrowing 20k makes it 30k. Cash becomes 80k.
         res = game_service.draw_loan_funds('test-user', 20000.0)
         self.assertTrue(res["success"])
-        self.assertEqual(res["cash"], 80000.0)
-        self.assertEqual(res["loan_principal"], 30000.0)
+        self.assertEqual(res["cash"], 20000.0)
+        self.assertEqual(res["loan_principal"], 20000.0)
         
         # 2. Exposure cap limit: total loan principal cannot exceed ₹50,000
-        # Borrow another 20,000 is allowed (reaches ₹50,000)
-        game_service.draw_loan_funds('test-user', 20000.0)
+        # Borrow another 30,000 is allowed (reaches ₹50,000)
+        game_service.draw_loan_funds('test-user', 30000.0)
         
         # Borrowing more should fail
         with self.assertRaises(ValueError) as ctx:
@@ -209,10 +218,14 @@ class TestGameService(unittest.TestCase):
         # 3. Repayment of loan
         res = game_service.repay_loan_funds('test-user', 10000.0)
         self.assertTrue(res["success"])
-        self.assertEqual(res["cash"], 90000.0) # 100,000 - 10,000
+        self.assertEqual(res["cash"], 40000.0) # 50,000 cash - 10,000 repayment
         self.assertEqual(res["loan_principal"], 40000.0)
         
         # Repay exceeds principal should fail
+        with game_service.get_conn() as conn:
+            conn.execute("UPDATE game_portfolios SET cash = 100000.0 WHERE user_id = 'test-user' AND is_active = 1")
+            conn.commit()
+            
         with self.assertRaises(ValueError) as ctx:
             game_service.repay_loan_funds('test-user', 50000.0)
         self.assertIn("exceeds total outstanding debt", str(ctx.exception))
@@ -228,9 +241,9 @@ class TestGameService(unittest.TestCase):
         self.assertIn("Insufficient cash", str(ctx.exception))
 
     def test_loan_interest_accrual_pro_rata(self):
-        # Initialize (which sets initial loan to 10k) and draw ₹20,000 loan -> total 30,000 loan
+        # Initialize and borrow ₹30,000 loan -> total 30,000 loan
         game_service.get_portfolio_summary('test-user')
-        game_service.draw_loan_funds('test-user', 20000.0)
+        game_service.draw_loan_funds('test-user', 30000.0)
         
         # Artificially shift last_interest_accrual back by 30 days in DB
         with game_service.get_conn() as conn:
