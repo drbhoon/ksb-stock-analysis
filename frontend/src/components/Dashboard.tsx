@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Upload, AlertTriangle, TrendingUp, TrendingDown, Activity, Settings, RefreshCw, BarChart2, ShieldAlert, Download } from 'lucide-react';
+import { Upload, AlertTriangle, TrendingUp, TrendingDown, Activity, Settings, RefreshCw, BarChart2, ShieldAlert, Download, HelpCircle } from 'lucide-react';
 
 interface StockResult {
   symbol: string;
@@ -206,7 +206,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px' }}>
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span style={{ fontWeight: 600 }}>Fundamental Weight</span>
+                <span className="tooltip-container" style={{ fontWeight: 600 }}>
+                  <span>Fundamental Weight</span>
+                  <HelpCircle size={12} style={{ color: 'var(--text-dim)' }} />
+                  <span className="tooltip-text" style={{ bottom: '150%' }}>
+                    <strong>Fundamental Weight</strong>
+                    Sets the relative weight of business quality (balance sheet health, debt load, operating ROE, cash multiples) in the overall scoring.
+                  </span>
+                </span>
                 <span style={{ color: 'var(--color-primary)', fontWeight: 700 }}>{Math.round(weightF * 100)}%</span>
               </div>
               <input 
@@ -226,7 +233,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span style={{ fontWeight: 600 }}>Technical Weight</span>
+                <span className="tooltip-container" style={{ fontWeight: 600 }}>
+                  <span>Technical Weight</span>
+                  <HelpCircle size={12} style={{ color: 'var(--text-dim)' }} />
+                  <span className="tooltip-text" style={{ bottom: '150%' }}>
+                    <strong>Technical Weight</strong>
+                    Sets the relative weight of price charts, moving average trends, MACD momentum, and RSI volatility levels in the overall scoring.
+                  </span>
+                </span>
                 <span style={{ color: 'var(--color-primary)', fontWeight: 700 }}>{Math.round(weightT * 100)}%</span>
               </div>
               <input 
@@ -321,7 +335,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <Activity size={24} />
               </div>
               <div>
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>PORTFOLIO SENTIMENT</span>
+                <span className="tooltip-container" style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                  <span>PORTFOLIO SENTIMENT</span>
+                  <HelpCircle size={12} style={{ color: 'var(--text-dim)' }} />
+                  <span className="tooltip-text" style={{ bottom: '150%' }}>
+                    <strong>Portfolio Sentiment</strong>
+                    Calculated as the average combined score of all mapped assets. Represents the general health and direction of your stock portfolio.
+                  </span>
+                </span>
                 <h3 className={
                   portfolioData.stats.sentiment === 'BULLISH' ? 'text-glow-emerald' : 
                   portfolioData.stats.sentiment === 'BEARISH' ? 'text-glow-crimson' : 'text-glow-amber'

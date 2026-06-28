@@ -221,7 +221,14 @@ export const StockDetail: React.FC<StockDetailProps> = ({
         <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <h4 style={{ fontSize: '0.9rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '6px', width: '100%' }}>
             <Activity size={16} style={{ color: 'var(--color-primary)' }} />
-            Momentum Gauge (RSI)
+            <span>Momentum Gauge (RSI)</span>
+            <span className="tooltip-container">
+              <HelpCircle size={12} style={{ color: 'var(--text-dim)', cursor: 'help' }} />
+              <span className="tooltip-text">
+                <strong>Relative Strength Index (RSI)</strong>
+                A momentum oscillator that measures the speed and change of price movements. Values above 70 indicate overbought conditions (potential pullback), while values below 30 indicate oversold conditions (potential rebound).
+              </span>
+            </span>
           </h4>
           
           <div className="gauge-container" style={{ margin: '10px 0' }}>
@@ -254,7 +261,14 @@ export const StockDetail: React.FC<StockDetailProps> = ({
         <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
           <h4 style={{ fontSize: '0.9rem', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
             <ShieldCheck size={16} style={{ color: 'var(--color-primary)' }} />
-            Fundamental Scorecard
+            <span>Fundamental Scorecard</span>
+            <span className="tooltip-container">
+              <HelpCircle size={12} style={{ color: 'var(--text-dim)', cursor: 'help' }} />
+              <span className="tooltip-text">
+                <strong>Fundamental Scorecard</strong>
+                Evaluates a company's financial health, debt leverage, operational efficiency, and pricing valuation based on balance sheet and income statement ratios.
+              </span>
+            </span>
           </h4>
           
           {is_etf ? (
@@ -266,7 +280,14 @@ export const StockDetail: React.FC<StockDetailProps> = ({
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {/* Metric Row P/E */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: '6px' }}>
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>P/E Ratio</span>
+                <span className="tooltip-container" style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                  <span>P/E Ratio</span>
+                  <HelpCircle size={11} style={{ color: 'var(--text-dim)', opacity: 0.8 }} />
+                  <span className="tooltip-text" style={{ bottom: '150%' }}>
+                    <strong>Price-to-Earnings (P/E) Ratio</strong>
+                    Compares a stock's price to its annual earnings per share. A lower ratio suggests it may be undervalued or a bargain, whereas a high ratio suggests higher growth expectations or overvaluation.
+                  </span>
+                </span>
                 <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>
                   {fundamental_details.metrics.pe ? fundamental_details.metrics.pe.toFixed(1) : 'N/A (Loss)'}
                 </span>
@@ -274,7 +295,14 @@ export const StockDetail: React.FC<StockDetailProps> = ({
               
               {/* Metric Row P/B */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: '6px' }}>
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>P/B Ratio</span>
+                <span className="tooltip-container" style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                  <span>P/B Ratio</span>
+                  <HelpCircle size={11} style={{ color: 'var(--text-dim)', opacity: 0.8 }} />
+                  <span className="tooltip-text" style={{ bottom: '150%' }}>
+                    <strong>Price-to-Book (P/B) Ratio</strong>
+                    Compares the market value of a stock to its book value (net assets). Excellent for grading banks, financials, or asset-heavy firms.
+                  </span>
+                </span>
                 <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>
                   {fundamental_details.metrics.pb ? `${fundamental_details.metrics.pb.toFixed(2)}x` : 'N/A'}
                 </span>
@@ -282,7 +310,14 @@ export const StockDetail: React.FC<StockDetailProps> = ({
 
               {/* Metric Row ROE */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: '6px' }}>
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Return on Equity (ROE)</span>
+                <span className="tooltip-container" style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                  <span>Return on Equity (ROE)</span>
+                  <HelpCircle size={11} style={{ color: 'var(--text-dim)', opacity: 0.8 }} />
+                  <span className="tooltip-text" style={{ bottom: '150%' }}>
+                    <strong>Return on Equity (ROE)</strong>
+                    Measures how efficiently a company generates profits using the cash invested by its shareholders. A ratio above 15% is generally considered high quality.
+                  </span>
+                </span>
                 <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--color-buy)' }}>
                   {fundamental_details.metrics.roe_percent ? `${fundamental_details.metrics.roe_percent.toFixed(1)}%` : 'N/A'}
                 </span>
@@ -290,7 +325,14 @@ export const StockDetail: React.FC<StockDetailProps> = ({
 
               {/* Metric Row Debt to Equity */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: '6px' }}>
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Debt-to-Equity</span>
+                <span className="tooltip-container" style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                  <span>Debt-to-Equity</span>
+                  <HelpCircle size={11} style={{ color: 'var(--text-dim)', opacity: 0.8 }} />
+                  <span className="tooltip-text" style={{ bottom: '150%' }}>
+                    <strong>Debt-to-Equity Ratio</strong>
+                    Measures financial leverage and solvency risk. A lower D/E indicates a lower debt burden. Financial companies (banks) are exempt from penalty here.
+                  </span>
+                </span>
                 <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>
                   {fundamental_details.metrics.is_financial ? 'Exempt (Bank)' : 
                    fundamental_details.metrics.de_ratio ? fundamental_details.metrics.de_ratio.toFixed(2) : 'N/A'}
@@ -299,7 +341,14 @@ export const StockDetail: React.FC<StockDetailProps> = ({
 
               {/* Metric Row Current Ratio */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: '6px' }}>
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Current Ratio</span>
+                <span className="tooltip-container" style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                  <span>Current Ratio</span>
+                  <HelpCircle size={11} style={{ color: 'var(--text-dim)', opacity: 0.8 }} />
+                  <span className="tooltip-text" style={{ bottom: '150%' }}>
+                    <strong>Current Ratio</strong>
+                    Measures a firm's ability to cover its short-term debt obligations with short-term assets. A ratio above 1.2x indicates healthy near-term liquidity.
+                  </span>
+                </span>
                 <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>
                   {fundamental_details.metrics.is_financial ? 'Exempt (Bank)' : 
                    fundamental_details.metrics.current_ratio ? `${fundamental_details.metrics.current_ratio.toFixed(2)}x` : 'N/A'}

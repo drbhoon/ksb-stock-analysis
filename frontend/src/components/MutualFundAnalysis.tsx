@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import {
   Search, Upload, TrendingUp, TrendingDown, RefreshCw,
-  Download, AlertTriangle, X, BarChart2
+  Download, AlertTriangle, X, BarChart2, HelpCircle
 } from 'lucide-react';
 
 interface MFResult {
@@ -499,13 +499,76 @@ export const MutualFundAnalysis: React.FC<Props> = ({ API_BASE_URL, token }) => 
                   <tr>
                     <th>Fund Name</th>
                     <th>Category</th>
-                    <th style={{ textAlign: 'right' }}>NAV (₹)</th>
-                    <th style={{ textAlign: 'right' }}>1M</th>
-                    <th style={{ textAlign: 'right' }}>3M</th>
-                    <th style={{ textAlign: 'right' }}>6M</th>
-                    <th style={{ textAlign: 'right' }}>1Y</th>
-                    <th style={{ textAlign: 'center' }}>Score</th>
-                    <th style={{ textAlign: 'center' }}>Signal</th>
+                    <th style={{ textAlign: 'right' }}>
+                      <span className="tooltip-container" style={{ justifyContent: 'flex-end', gap: '3px' }}>
+                        <span>NAV (₹)</span>
+                        <HelpCircle size={11} style={{ opacity: 0.8 }} />
+                        <span className="tooltip-text" style={{ bottom: '150%' }}>
+                          <strong>Net Asset Value (NAV)</strong>
+                          The daily close price per unit of the mutual fund scheme.
+                        </span>
+                      </span>
+                    </th>
+                    <th style={{ textAlign: 'right' }}>
+                      <span className="tooltip-container" style={{ justifyContent: 'flex-end', gap: '3px' }}>
+                        <span>1M</span>
+                        <HelpCircle size={11} style={{ opacity: 0.8 }} />
+                        <span className="tooltip-text" style={{ bottom: '150%' }}>
+                          <strong>1-Month Returns</strong>
+                          The fund's performance over the last 30 days.
+                        </span>
+                      </span>
+                    </th>
+                    <th style={{ textAlign: 'right' }}>
+                      <span className="tooltip-container" style={{ justifyContent: 'flex-end', gap: '3px' }}>
+                        <span>3M</span>
+                        <HelpCircle size={11} style={{ opacity: 0.8 }} />
+                        <span className="tooltip-text" style={{ bottom: '150%' }}>
+                          <strong>3-Month Returns</strong>
+                          The fund's performance over the last 90 days.
+                        </span>
+                      </span>
+                    </th>
+                    <th style={{ textAlign: 'right' }}>
+                      <span className="tooltip-container" style={{ justifyContent: 'flex-end', gap: '3px' }}>
+                        <span>6M</span>
+                        <HelpCircle size={11} style={{ opacity: 0.8 }} />
+                        <span className="tooltip-text" style={{ bottom: '150%' }}>
+                          <strong>6-Month Returns</strong>
+                          The fund's performance over the last 180 days.
+                        </span>
+                      </span>
+                    </th>
+                    <th style={{ textAlign: 'right' }}>
+                      <span className="tooltip-container" style={{ justifyContent: 'flex-end', gap: '3px' }}>
+                        <span>1Y</span>
+                        <HelpCircle size={11} style={{ opacity: 0.8 }} />
+                        <span className="tooltip-text" style={{ bottom: '150%' }}>
+                          <strong>1-Year Returns</strong>
+                          The fund's performance over the last 365 days.
+                        </span>
+                      </span>
+                    </th>
+                    <th style={{ textAlign: 'center' }}>
+                      <span className="tooltip-container" style={{ justifyContent: 'center', gap: '3px', width: '100%' }}>
+                        <span>Score</span>
+                        <HelpCircle size={11} style={{ opacity: 0.8 }} />
+                        <span className="tooltip-text" style={{ bottom: '150%' }}>
+                          <strong>Performance Score</strong>
+                          Overall rating out of 100 calculated from category peer returns rank and volatility management.
+                        </span>
+                      </span>
+                    </th>
+                    <th style={{ textAlign: 'center' }}>
+                      <span className="tooltip-container" style={{ justifyContent: 'center', gap: '3px', width: '100%' }}>
+                        <span>Signal</span>
+                        <HelpCircle size={11} style={{ opacity: 0.8 }} />
+                        <span className="tooltip-text" style={{ bottom: '150%' }}>
+                          <strong>Analyser Signal</strong>
+                          BUY (underpriced/top performance), HOLD (average peer profile), or SELL (lacking momentum/high risk).
+                        </span>
+                      </span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
