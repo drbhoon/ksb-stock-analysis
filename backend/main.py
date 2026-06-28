@@ -11,6 +11,8 @@ from pydantic import BaseModel
 import pandas as pd
 
 # Import backend modules
+import asyncio
+import game_service
 from symbol_mapper import mapper
 from analyzer import StockAnalyzer
 from excel_parser import ExcelParser
@@ -30,10 +32,20 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Portfolio Analyser API", version="2.0.0")
 
+async def schedule_daily_snapshot_job():
+    """Background task running every 4 hours to check if we need to take a snapshot."""
+    while True:
+        try:
+            game_service.save_daily_snapshot_job()
+        except Exception as e:
+            logger.error(f"Failed to run scheduled daily snapshot job: {e}")
+        await asyncio.sleep(14400)
+
 @app.on_event("startup")
 async def startup_event():
     init_db()
     logger.info("Database initialised")
+    asyncio.create_task(schedule_daily_snapshot_job())
 
 # Setup CORS
 _ALLOWED_ORIGINS = [
@@ -595,6 +607,107 @@ async def get_market_summary(authenticated: bool = Depends(get_current_user)):
             logger.warning(f"Failed to fetch market index {name}: {e}")
             
     return summary
+
+# ── Paper Trading Game Routes ───────────────────────────────────────────────
+
+class TradeRequest(BaseModel):
+    symbol: str
+    action: str # BUY or SELL
+    quantity: int
+
+class LoanRequest(BaseModel):
+    amount: float
+
+@app.get("/api/game/portfolio")
+async def game_portfolio(user: Dict = Depends(get_current_user)):
+    try:
+        summary = game_service.get_portfolio_summary(user["sub"])
+        return summary
+    except Exception as e:
+        logger.error(f"Failed to fetch game portfolio: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/game/portfolio/restart")
+async def game_portfolio_restart(user: Dict = Depends(get_current_user)):
+    try:
+        new_season = game_service.restart_portfolio(user["sub"])
+        return {
+            "success": True,
+            "message": "New season started successfully.",
+            "season": new_season
+        }
+    except Exception as e:
+        logger.error(f"Failed to restart game portfolio: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/game/holdings")
+async def game_holdings(user: Dict = Depends(get_current_user)):
+    try:
+        holdings = game_service.get_holdings_list(user["sub"])
+        return holdings
+    except Exception as e:
+        logger.error(f"Failed to fetch game holdings: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/game/trade")
+async def game_trade(req: TradeRequest, user: Dict = Depends(get_current_user)):
+    try:
+        res = game_service.execute_trade(user["sub"], req.symbol, req.action, req.quantity)
+        return res
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Game trade failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/game/loan/draw")
+async def game_loan_draw(req: LoanRequest, user: Dict = Depends(get_current_user)):
+    try:
+        res = game_service.draw_loan_funds(user["sub"], req.amount)
+        return res
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Game loan draw failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/game/loan/repay")
+async def game_loan_repay(req: LoanRequest, user: Dict = Depends(get_current_user)):
+    try:
+        res = game_service.repay_loan_funds(user["sub"], req.amount)
+        return res
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Game loan repay failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/game/history")
+async def game_history(user: Dict = Depends(get_current_user)):
+    try:
+        history = game_service.get_transaction_history(user["sub"])
+        return history
+    except Exception as e:
+        logger.error(f"Failed to fetch game transaction history: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/game/equity-curve")
+async def game_equity_curve(user: Dict = Depends(get_current_user)):
+    try:
+        curve = game_service.get_equity_curve_snapshots(user["sub"])
+        return curve
+    except Exception as e:
+        logger.error(f"Failed to fetch game equity curve: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/game/leaderboard")
+async def game_leaderboard(user: Dict = Depends(get_current_user)):
+    try:
+        leaderboard = game_service.get_leaderboard_stub()
+        return leaderboard
+    except Exception as e:
+        logger.error(f"Failed to fetch game leaderboard: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # Serve static frontend files in production if dist folder is present
 frontend_dist_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "dist")

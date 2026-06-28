@@ -62,6 +62,56 @@ def init_db() -> None:
                 added_at    TEXT DEFAULT (datetime('now')),
                 UNIQUE(user_id, scheme_code)
             );
+
+            CREATE TABLE IF NOT EXISTS game_portfolios (
+                id                     INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id                TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                season                 INTEGER NOT NULL DEFAULT 1,
+                is_active              INTEGER NOT NULL DEFAULT 1,
+                cash                   REAL NOT NULL DEFAULT 50000.0,
+                loan_principal         REAL NOT NULL DEFAULT 0.0,
+                accrued_interest       REAL NOT NULL DEFAULT 0.0,
+                last_interest_accrual  TEXT NOT NULL DEFAULT (datetime('now')),
+                created_at             TEXT DEFAULT (datetime('now')),
+                updated_at             TEXT DEFAULT (datetime('now')),
+                UNIQUE(user_id, season)
+            );
+
+            CREATE TABLE IF NOT EXISTS game_holdings (
+                id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+                portfolio_id       INTEGER NOT NULL REFERENCES game_portfolios(id) ON DELETE CASCADE,
+                symbol             TEXT NOT NULL,
+                company_name       TEXT NOT NULL,
+                quantity           INTEGER NOT NULL,
+                average_buy_price  REAL NOT NULL,
+                created_at         TEXT DEFAULT (datetime('now')),
+                UNIQUE(portfolio_id, symbol)
+            );
+
+            CREATE TABLE IF NOT EXISTS game_transactions (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                portfolio_id  INTEGER NOT NULL REFERENCES game_portfolios(id) ON DELETE CASCADE,
+                type          TEXT NOT NULL,
+                symbol        TEXT,
+                quantity      INTEGER,
+                price         REAL,
+                fee           REAL,
+                amount        REAL NOT NULL,
+                timestamp     TEXT DEFAULT (datetime('now'))
+            );
+
+            CREATE TABLE IF NOT EXISTS game_daily_snapshots (
+                id                INTEGER PRIMARY KEY AUTOINCREMENT,
+                portfolio_id      INTEGER NOT NULL REFERENCES game_portfolios(id) ON DELETE CASCADE,
+                date              TEXT NOT NULL,
+                cash              REAL NOT NULL,
+                holdings_value    REAL NOT NULL,
+                loan_principal    REAL NOT NULL,
+                accrued_interest  REAL NOT NULL,
+                net_worth         REAL NOT NULL,
+                timestamp         TEXT DEFAULT (datetime('now')),
+                UNIQUE(portfolio_id, date)
+            );
         """)
     logger.info(f"Database initialised at {DB_PATH}")
 

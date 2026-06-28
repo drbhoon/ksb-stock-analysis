@@ -7,6 +7,7 @@ import { SmartPlanner } from './components/SmartPlanner';
 import { LoginPage } from './components/LoginPage';
 import { AdminPanel } from './components/AdminPanel';
 import { LearnGuide } from './components/LearnGuide';
+import { PaperTrading } from './components/PaperTrading';
 import { ShieldAlert, TrendingUp, LogOut } from 'lucide-react';
 
 const API_BASE_URL = window.location.origin.includes('localhost:5173') 
@@ -18,7 +19,7 @@ function App() {
   const [authRequired, setAuthRequired] = useState<boolean>(false);
   const [adminBypassEnabled, setAdminBypassEnabled] = useState<boolean>(false);
   const [authChecking, setAuthChecking] = useState<boolean>(true);
-  const [currentTab, setCurrentTab] = useState<'PORTFOLIO' | 'SINGLE' | 'MF' | 'PLANNER' | 'ADMIN' | 'LEARN'>('PORTFOLIO');
+  const [currentTab, setCurrentTab] = useState<'PORTFOLIO' | 'SINGLE' | 'MF' | 'PLANNER' | 'ADMIN' | 'LEARN' | 'GAME'>('PORTFOLIO');
   const [userProfile, setUserProfile] = useState<{email: string; name: string; picture?: string} | null>(null);
   const [oauthError, setOauthError] = useState<string | null>(null);
 
@@ -458,8 +459,8 @@ function App() {
 
   const isAdmin = userProfile?.email === "admin@ksbhoon.local" || userProfile?.email === "drbhoon@gmail.com";
   const tabs = isAdmin 
-    ? (['PORTFOLIO', 'SINGLE', 'MF', 'PLANNER', 'ADMIN', 'LEARN'] as const)
-    : (['PORTFOLIO', 'SINGLE', 'MF', 'PLANNER', 'LEARN'] as const);
+    ? (['PORTFOLIO', 'SINGLE', 'MF', 'PLANNER', 'GAME', 'ADMIN', 'LEARN'] as const)
+    : (['PORTFOLIO', 'SINGLE', 'MF', 'PLANNER', 'GAME', 'LEARN'] as const);
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -489,6 +490,7 @@ function App() {
               SINGLE: 'Single Stock',
               MF: 'Mutual Funds',
               PLANNER: 'Smart Planner',
+              GAME: 'Paper Trading',
               ADMIN: 'Admin Panel',
               LEARN: 'Beginners Guide'
             };
@@ -635,6 +637,12 @@ function App() {
         )}
         {currentTab === 'LEARN' && (
           <LearnGuide />
+        )}
+        {currentTab === 'GAME' && (
+          <PaperTrading
+            API_BASE_URL={API_BASE_URL}
+            token={token}
+          />
         )}
 
         {/* Slide-out details drawer */}
