@@ -271,6 +271,25 @@ def get_portfolio_summary(user_id: str) -> Dict[str, Any]:
         portfolio = dict(row)
         portfolio_id = portfolio["id"]
         
+        # Upgrade migration for existing portfolios created with ₹50,000 cash and ₹0 loan
+        if portfolio["cash"] == 50000.0 and portfolio["loan_principal"] == 0.0:
+            holdings_count = conn.execute("SELECT COUNT(*) as count FROM game_holdings WHERE portfolio_id = ?", (portfolio_id,)).fetchone()["count"]
+            tx_count = conn.execute("SELECT COUNT(*) as count FROM game_transactions WHERE portfolio_id = ?", (portfolio_id,)).fetchone()["count"]
+            if holdings_count == 0 and tx_count == 0:
+                conn.execute("""
+                    UPDATE game_portfolios 
+                    SET cash = 60000.0, loan_principal = 10000.0, last_interest_accrual = datetime('now')
+                    WHERE id = ?
+                """, (portfolio_id,))
+                conn.execute("""
+                    INSERT INTO game_transactions (portfolio_id, type, amount)
+                    VALUES (?, 'LOAN_DRAW', 10000.0)
+                """, (portfolio_id,))
+                conn.commit()
+                # Reload portfolio dict
+                row = conn.execute("SELECT * FROM game_portfolios WHERE id = ?", (portfolio_id,)).fetchone()
+                portfolio = dict(row)
+        
         # Process any pending orders if market is open
         process_pending_orders(portfolio_id, conn)
         conn.commit()

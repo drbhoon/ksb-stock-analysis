@@ -798,7 +798,7 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token 
                 </div>
                 <input 
                   type="number"
-                  min="1"
+                  min="0"
                   step="100"
                   value={loanAmount}
                   onChange={(e) => setLoanAmount(e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value, 10) || 0))}
