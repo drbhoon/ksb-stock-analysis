@@ -85,12 +85,12 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token 
   const [fetchingPrice, setFetchingPrice] = useState<boolean>(false);
   
   const [tradeAction, setTradeAction] = useState<'BUY' | 'SELL'>('BUY');
-  const [tradeQty, setTradeQty] = useState<number>(1);
+  const [tradeQty, setTradeQty] = useState<number | ''>('');
   const [executingTrade, setExecutingTrade] = useState<boolean>(false);
 
   // Loan State
   const [loanAction, setLoanAction] = useState<'BORROW' | 'REPAY'>('BORROW');
-  const [loanAmount, setLoanAmount] = useState<number>(5000);
+  const [loanAmount, setLoanAmount] = useState<number | ''>('');
   const [executingLoan, setExecutingLoan] = useState<boolean>(false);
 
   // Market hours status helper
@@ -238,7 +238,7 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token 
   // Trade Executor
   const handleTradeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedStock || !selectedStockPrice) return;
+    if (!selectedStock || !selectedStockPrice || !tradeQty || tradeQty <= 0) return;
     
     setExecutingTrade(true);
     setActionError(null);
@@ -263,7 +263,7 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token 
       setSuccessMsg(data.message || 'Trade executed successfully.');
       setSelectedStock(null);
       setSelectedStockPrice(null);
-      setTradeQty(1);
+      setTradeQty('');
       
       // Re-fetch
       await fetchGameData(true);
@@ -277,7 +277,7 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token 
   // Loan Executor
   const handleLoanSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (loanAmount <= 0) return;
+    if (!loanAmount || loanAmount <= 0) return;
     
     setExecutingLoan(true);
     setActionError(null);
@@ -297,6 +297,7 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token 
       }
 
       setSuccessMsg(data.message || `${loanAction} request successful.`);
+      setLoanAmount('');
       
       // Re-fetch
       await fetchGameData(true);
@@ -688,7 +689,7 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token 
                     min="1"
                     step="1"
                     value={tradeQty}
-                    onChange={(e) => setTradeQty(Math.max(1, parseInt(e.target.value, 10) || 0))}
+                    onChange={(e) => setTradeQty(e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value, 10) || 0))}
                     disabled={!selectedStockPrice}
                     style={{
                       width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-glass)',
@@ -699,25 +700,28 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token 
                 </div>
 
                 {/* Estimate calculations */}
-                {selectedStockPrice && (
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span>Subtotal:</span>
-                      <span>₹{(selectedStockPrice * tradeQty).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                {selectedStockPrice && (() => {
+                  const qtyNum = Number(tradeQty) || 0;
+                  return (
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>Subtotal:</span>
+                        <span>₹{(selectedStockPrice * qtyNum).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>Brokerage (0.1%):</span>
+                        <span>₹{(selectedStockPrice * qtyNum * 0.001).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                      <hr style={{ border: 'none', borderTop: '1px solid rgba(255,255,255,0.04)', margin: '4px 0' }} />
+                      <div style={{ display: 'flex', justifyContent: 'space-between', color: 'white', fontWeight: 700 }}>
+                        <span>Total {tradeAction === 'BUY' ? 'Cost' : 'Credit'}:</span>
+                        <span>
+                          ₹{(selectedStockPrice * qtyNum * (tradeAction === 'BUY' ? 1.001 : 0.999)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span>Brokerage (0.1%):</span>
-                      <span>₹{(selectedStockPrice * tradeQty * 0.001).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                    </div>
-                    <hr style={{ border: 'none', borderTop: '1px solid rgba(255,255,255,0.04)', margin: '4px 0' }} />
-                    <div style={{ display: 'flex', justifyContent: 'space-between', color: 'white', fontWeight: 700 }}>
-                      <span>Total {tradeAction === 'BUY' ? 'Cost' : 'Credit'}:</span>
-                      <span>
-                        ₹{(selectedStockPrice * tradeQty * (tradeAction === 'BUY' ? 1.001 : 0.999)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 <button
                   type="submit"
@@ -797,7 +801,7 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token 
                   min="1"
                   step="100"
                   value={loanAmount}
-                  onChange={(e) => setLoanAmount(Math.max(1, parseInt(e.target.value, 10) || 0))}
+                  onChange={(e) => setLoanAmount(e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value, 10) || 0))}
                   style={{
                     width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-glass)',
                     borderRadius: '8px', padding: '10px 12px', color: 'white', outline: 'none',
@@ -808,11 +812,11 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token 
 
               <button
                 type="submit"
-                disabled={executingLoan || loanAmount <= 0}
+                disabled={executingLoan || !loanAmount || loanAmount <= 0}
                 className="btn-primary"
                 style={{
                   width: '100%', padding: '12px 0', borderRadius: '10px', fontSize: '0.85rem',
-                  fontWeight: 700, opacity: (executingLoan || loanAmount <= 0) ? 0.5 : 1
+                  fontWeight: 700, opacity: (executingLoan || !loanAmount || loanAmount <= 0) ? 0.5 : 1
                 }}
               >
                 {executingLoan ? 'Processing...' : `Confirm ${loanAction === 'BORROW' ? 'Borrow' : 'Repayment'}`}

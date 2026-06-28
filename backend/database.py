@@ -112,6 +112,16 @@ def init_db() -> None:
                 timestamp         TEXT DEFAULT (datetime('now')),
                 UNIQUE(portfolio_id, date)
             );
+
+            CREATE TABLE IF NOT EXISTS game_pending_orders (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                portfolio_id  INTEGER NOT NULL REFERENCES game_portfolios(id) ON DELETE CASCADE,
+                type          TEXT NOT NULL,
+                symbol        TEXT NOT NULL,
+                company_name  TEXT NOT NULL,
+                quantity      INTEGER NOT NULL,
+                created_at    TEXT DEFAULT (datetime('now'))
+            );
         """)
     logger.info(f"Database initialised at {DB_PATH}")
 

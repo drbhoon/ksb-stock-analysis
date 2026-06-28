@@ -127,6 +127,120 @@ def accrue_interest_lazy(portfolio_id: int, conn: sqlite3.Connection) -> None:
             VALUES (?, 'INTEREST_ACCRUAL', ?, datetime('now'))
         """, (portfolio_id, -interest_increment))
 
+def process_pending_orders(portfolio_id: int, conn: sqlite3.Connection):
+    """Processes any queued off-hours orders if the market is currently open."""
+    if not is_market_open():
+        return
+        
+    rows = conn.execute("""
+        SELECT * FROM game_pending_orders WHERE portfolio_id = ?
+    """, (portfolio_id,)).fetchall()
+    
+    if not rows:
+        return
+        
+    for r in rows:
+        order_id = r["id"]
+        action = r["type"]
+        symbol = r["symbol"]
+        company_name = r["company_name"]
+        quantity = r["quantity"]
+        
+        try:
+            # Fetch opening price of current day
+            import yfinance as yf
+            ticker = yf.Ticker(symbol)
+            hist = ticker.history(period="1d")
+            if hist.empty:
+                logger.warning(f"No history found for {symbol} when processing pending order.")
+                continue
+                
+            open_price = float(hist["Open"].iloc[0])
+            if open_price <= 0:
+                open_price = float(hist["Close"].iloc[0])
+                
+            trade_value = open_price * quantity
+            fee = trade_value * SLIPPAGE_RATE
+            
+            # Reload portfolio cash
+            portfolio = conn.execute("SELECT cash FROM game_portfolios WHERE id = ?", (portfolio_id,)).fetchone()
+            cash = portfolio["cash"]
+            
+            if action == "BUY":
+                total_cost = trade_value + fee
+                if cash < total_cost:
+                    # Log failed transaction
+                    conn.execute("""
+                        INSERT INTO game_transactions (portfolio_id, type, symbol, quantity, price, fee, amount)
+                        VALUES (?, 'BUY_FAILED', ?, ?, ?, ?, 0.0)
+                    """, (portfolio_id, symbol, quantity, open_price, fee))
+                    logger.warning(f"Pending BUY order failed for {symbol}: Insufficient funds (required: {total_cost}, available: {cash})")
+                else:
+                    new_cash = cash - total_cost
+                    conn.execute("UPDATE game_portfolios SET cash = ?, updated_at = datetime('now') WHERE id = ?", (new_cash, portfolio_id))
+                    
+                    # Upsert holding
+                    holding = conn.execute("""
+                        SELECT * FROM game_holdings WHERE portfolio_id = ? AND symbol = ?
+                    """, (portfolio_id, symbol)).fetchone()
+                    
+                    if holding:
+                        current_qty = holding["quantity"]
+                        current_avg = holding["average_buy_price"]
+                        new_qty = current_qty + quantity
+                        new_avg = ((current_qty * current_avg) + (quantity * open_price)) / new_qty
+                        
+                        conn.execute("""
+                            UPDATE game_holdings SET quantity = ?, average_buy_price = ?, created_at = datetime('now') WHERE id = ?
+                        """, (new_qty, new_avg, holding["id"]))
+                    else:
+                        conn.execute("""
+                            INSERT INTO game_holdings (portfolio_id, symbol, company_name, quantity, average_buy_price)
+                            VALUES (?, ?, ?, ?, ?)
+                        """, (portfolio_id, symbol, company_name, quantity, open_price))
+                        
+                    # Log transaction
+                    conn.execute("""
+                        INSERT INTO game_transactions (portfolio_id, type, symbol, quantity, price, fee, amount)
+                        VALUES (?, 'BUY', ?, ?, ?, ?, ?)
+                    """, (portfolio_id, symbol, quantity, open_price, fee, -total_cost))
+                    
+            elif action == "SELL":
+                # Check holding
+                holding = conn.execute("""
+                    SELECT * FROM game_holdings WHERE portfolio_id = ? AND symbol = ?
+                """, (portfolio_id, symbol)).fetchone()
+                
+                if not holding or holding["quantity"] < quantity:
+                    # Log failed transaction
+                    conn.execute("""
+                        INSERT INTO game_transactions (portfolio_id, type, symbol, quantity, price, fee, amount)
+                        VALUES (?, 'SELL_FAILED', ?, ?, ?, ?, 0.0)
+                    """, (portfolio_id, symbol, quantity, open_price, fee))
+                    logger.warning(f"Pending SELL order failed for {symbol}: Insufficient shares.")
+                else:
+                    total_credit = trade_value - fee
+                    new_cash = cash + total_credit
+                    conn.execute("UPDATE game_portfolios SET cash = ?, updated_at = datetime('now') WHERE id = ?", (new_cash, portfolio_id))
+                    
+                    current_qty = holding["quantity"]
+                    if current_qty == quantity:
+                        conn.execute("DELETE FROM game_holdings WHERE id = ?", (holding["id"],))
+                    else:
+                        conn.execute("UPDATE game_holdings SET quantity = ? WHERE id = ?", (current_qty - quantity, holding["id"]))
+                        
+                    # Log transaction
+                    conn.execute("""
+                        INSERT INTO game_transactions (portfolio_id, type, symbol, quantity, price, fee, amount)
+                        VALUES (?, 'SELL', ?, ?, ?, ?, ?)
+                    """, (portfolio_id, symbol, quantity, open_price, fee, total_credit))
+            
+            # Delete order from queue
+            conn.execute("DELETE FROM game_pending_orders WHERE id = ?", (order_id,))
+            
+        except Exception as e:
+            logger.error(f"Error processing pending order {order_id} for {symbol}: {e}")
+
 def get_portfolio_summary(user_id: str) -> Dict[str, Any]:
     """Retrieves or creates the user's active game portfolio, computing live valuation."""
     with get_conn() as conn:
@@ -136,11 +250,18 @@ def get_portfolio_summary(user_id: str) -> Dict[str, Any]:
         """, (user_id,)).fetchone()
         
         if not row:
-            # Create first season portfolio
+            # Create first season portfolio with ₹50,000 capital + ₹10,000 initial loan
+            cursor = conn.execute("""
+                INSERT INTO game_portfolios (user_id, season, cash, loan_principal)
+                VALUES (?, 1, ?, 10000.0)
+            """, (user_id, STARTING_CAPITAL + 10000.0))
+            new_portfolio_id = cursor.lastrowid
+            
+            # Log the initial loan drawdown transaction so it shows in the ledger
             conn.execute("""
-                INSERT INTO game_portfolios (user_id, season, cash)
-                VALUES (?, 1, ?)
-            """, (user_id, STARTING_CAPITAL))
+                INSERT INTO game_transactions (portfolio_id, type, amount)
+                VALUES (?, 'LOAN_DRAW', 10000.0)
+            """, (new_portfolio_id,))
             conn.commit()
             
             row = conn.execute("""
@@ -149,6 +270,14 @@ def get_portfolio_summary(user_id: str) -> Dict[str, Any]:
             
         portfolio = dict(row)
         portfolio_id = portfolio["id"]
+        
+        # Process any pending orders if market is open
+        process_pending_orders(portfolio_id, conn)
+        conn.commit()
+        
+        # Reload after processing pending orders & accrual
+        row = conn.execute("SELECT * FROM game_portfolios WHERE id = ?", (portfolio_id,)).fetchone()
+        portfolio = dict(row)
         
         # 2. Accrue interest up to the current second
         accrue_interest_lazy(portfolio_id, conn)
@@ -255,12 +384,19 @@ def restart_portfolio(user_id: str) -> int:
             WHERE id = ?
         """, (final_net_worth, portfolio_id))
         
-        # 4. Insert new season portfolio
+        # 4. Insert new season portfolio with ₹50,000 capital + ₹10,000 initial loan
         new_season = season + 1
+        cursor = conn.execute("""
+            INSERT INTO game_portfolios (user_id, season, cash, loan_principal)
+            VALUES (?, ?, ?, 10000.0)
+        """, (user_id, new_season, STARTING_CAPITAL + 10000.0))
+        new_portfolio_id = cursor.lastrowid
+        
+        # Log the initial loan drawdown transaction so it shows in the ledger
         conn.execute("""
-            INSERT INTO game_portfolios (user_id, season, cash)
-            VALUES (?, ?, ?)
-        """, (user_id, new_season, STARTING_CAPITAL))
+            INSERT INTO game_transactions (portfolio_id, type, amount)
+            VALUES (?, 'LOAN_DRAW', 10000.0)
+        """, (new_portfolio_id,))
         
         conn.commit()
         return new_season
@@ -276,6 +412,11 @@ def get_holdings_list(user_id: str) -> List[Dict[str, Any]]:
             return []
             
         portfolio_id = portfolio["id"]
+        
+        # Process pending orders
+        process_pending_orders(portfolio_id, conn)
+        conn.commit()
+        
         rows = conn.execute("""
             SELECT * FROM game_holdings WHERE portfolio_id = ?
         """, (portfolio_id,)).fetchall()
@@ -323,16 +464,13 @@ def get_holdings_list(user_id: str) -> List[Dict[str, Any]]:
         return holdings
 
 def execute_trade(user_id: str, symbol: str, action: str, quantity: int) -> Dict[str, Any]:
-    """Places a BUY or SELL trade at the live market price."""
+    """Places a BUY or SELL trade at the live market price, or queues it if off-hours."""
     if quantity <= 0:
         raise ValueError("Quantity must be greater than zero.")
         
     action_upper = action.upper().strip()
     if action_upper not in ["BUY", "SELL"]:
         raise ValueError("Invalid trade action. Must be BUY or SELL.")
-        
-    if not is_market_open():
-        raise ValueError("Market is closed. Trading hours are Mon-Fri, 9:15 AM - 3:30 PM IST.")
         
     # Resolve symbol first using mapper overrides / lookup
     try:
@@ -343,11 +481,59 @@ def execute_trade(user_id: str, symbol: str, action: str, quantity: int) -> Dict
         if not resolved_symbol.endswith(".NS") and "^" not in resolved_symbol:
             resolved_symbol = f"{resolved_symbol}.NS"
         company_name = resolved_symbol
-        
-    price = get_live_price(resolved_symbol)
-    trade_value = price * quantity
-    fee = trade_value * SLIPPAGE_RATE
-    
+
+    if not is_market_open():
+        # Place off-hours order queued!
+        with get_conn() as conn:
+            portfolio = conn.execute("""
+                SELECT * FROM game_portfolios WHERE user_id = ? AND is_active = 1
+            """, (user_id,)).fetchone()
+            
+            if not portfolio:
+                raise ValueError("No active portfolio session found.")
+                
+            portfolio_id = portfolio["id"]
+            cash = portfolio["cash"]
+            
+            # Fetch latest price to estimate and run basic checks
+            price = get_live_price(resolved_symbol)
+            estimated_value = price * quantity
+            estimated_fee = estimated_value * SLIPPAGE_RATE
+            
+            if action_upper == "BUY":
+                total_cost = estimated_value + estimated_fee
+                if cash < total_cost:
+                    raise ValueError(f"Insufficient funds for off-hours order. Estimated cost: ₹{total_cost:,.2f}, Available cash: ₹{cash:,.2f}")
+            else: # SELL
+                # Check active holdings minus any queued sells
+                holding = conn.execute("""
+                    SELECT quantity FROM game_holdings WHERE portfolio_id = ? AND symbol = ?
+                """, (portfolio_id, resolved_symbol)).fetchone()
+                
+                queued_qty = conn.execute("""
+                    SELECT SUM(quantity) as total FROM game_pending_orders 
+                    WHERE portfolio_id = ? AND symbol = ? AND type = 'SELL'
+                """, (portfolio_id, resolved_symbol)).fetchone()
+                
+                total_queued = queued_qty["total"] if queued_qty and queued_qty["total"] else 0
+                held = holding["quantity"] if holding else 0
+                
+                if held - total_queued < quantity:
+                    raise ValueError(f"Insufficient shares for off-hours sell. Held: {held}, Already queued: {total_queued}, Requested: {quantity}")
+            
+            # Queue order
+            conn.execute("""
+                INSERT INTO game_pending_orders (portfolio_id, type, symbol, company_name, quantity)
+                VALUES (?, ?, ?, ?, ?)
+            """, (portfolio_id, action_upper, resolved_symbol, company_name, quantity))
+            conn.commit()
+            
+            return {
+                "success": True,
+                "message": f"Off-hours {action_upper} order for {quantity} shares of {resolved_symbol} placed. It will be executed at the market opening price."
+            }
+
+    # Live market execution
     with get_conn() as conn:
         portfolio = conn.execute("""
             SELECT * FROM game_portfolios WHERE user_id = ? AND is_active = 1
@@ -357,7 +543,17 @@ def execute_trade(user_id: str, symbol: str, action: str, quantity: int) -> Dict
             raise ValueError("No active portfolio session found.")
             
         portfolio_id = portfolio["id"]
+        
+        # First process any pending orders that have just opened
+        process_pending_orders(portfolio_id, conn)
+        
+        # Reload portfolio cash after processing pending
+        portfolio = conn.execute("SELECT * FROM game_portfolios WHERE id = ?", (portfolio_id,)).fetchone()
         cash = portfolio["cash"]
+        
+        price = get_live_price(resolved_symbol)
+        trade_value = price * quantity
+        fee = trade_value * SLIPPAGE_RATE
         
         if action_upper == "BUY":
             total_cost = trade_value + fee
@@ -383,7 +579,7 @@ def execute_trade(user_id: str, symbol: str, action: str, quantity: int) -> Dict
                 new_avg = ((current_qty * current_avg) + (quantity * price)) / new_qty
                 
                 conn.execute("""
-                    UPDATE game_holdings SET quantity = ?, average_buy_price = ?
+                    UPDATE game_holdings SET quantity = ?, average_buy_price = ?, created_at = datetime('now')
                     WHERE id = ?
                 """, (new_qty, new_avg, holding["id"]))
             else:
@@ -573,6 +769,11 @@ def get_transaction_history(user_id: str) -> List[Dict[str, Any]]:
             return []
             
         portfolio_id = portfolio["id"]
+        
+        # Process pending orders
+        process_pending_orders(portfolio_id, conn)
+        conn.commit()
+        
         rows = conn.execute("""
             SELECT * FROM game_transactions WHERE portfolio_id = ? ORDER BY id DESC
         """, (portfolio_id,)).fetchall()
