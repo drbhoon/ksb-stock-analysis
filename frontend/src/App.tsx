@@ -16,12 +16,23 @@ const API_BASE_URL = isLocalFrontend && window.location.port === '5173'
   ? 'http://localhost:8000'
   : window.location.origin;
 
+type AppTab = 'PORTFOLIO' | 'SINGLE' | 'MF' | 'PLANNER' | 'ADMIN' | 'LEARN' | 'GAME';
+const APP_TABS: AppTab[] = ['PORTFOLIO', 'SINGLE', 'MF', 'PLANNER', 'ADMIN', 'LEARN', 'GAME'];
+const getInitialTab = (): AppTab => {
+  try {
+    const savedTab = localStorage.getItem('ksb_active_tab') as AppTab | null;
+    return savedTab && APP_TABS.includes(savedTab) ? savedTab : 'PORTFOLIO';
+  } catch {
+    return 'PORTFOLIO';
+  }
+};
+
 function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem('ksb_auth_token'));
   const [authRequired, setAuthRequired] = useState<boolean>(false);
   const [adminBypassEnabled, setAdminBypassEnabled] = useState<boolean>(false);
   const [authChecking, setAuthChecking] = useState<boolean>(true);
-  const [currentTab, setCurrentTab] = useState<'PORTFOLIO' | 'SINGLE' | 'MF' | 'PLANNER' | 'ADMIN' | 'LEARN' | 'GAME'>('PORTFOLIO');
+  const [currentTab, setCurrentTab] = useState<AppTab>(getInitialTab);
   const [userProfile, setUserProfile] = useState<{email: string; name: string; picture?: string} | null>(null);
   const [oauthError, setOauthError] = useState<string | null>(null);
 
@@ -131,6 +142,10 @@ function App() {
     const interval = setInterval(fetchMarketIndices, 60000); // refresh every minute
     return () => clearInterval(interval);
   }, [authChecking, authRequired, token]);
+
+  useEffect(() => {
+    try { localStorage.setItem('ksb_active_tab', currentTab); } catch {}
+  }, [currentTab]);
 
   const fetchMarketIndices = async () => {
     try {

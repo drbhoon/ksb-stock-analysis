@@ -545,7 +545,7 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token,
             ₹{summary.loan_principal.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
           </h2>
           <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '6px', display: 'block' }}>
-            Headroom cap: ₹{summary.loan_headroom.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+            Borrowed principal
           </span>
         </div>
 

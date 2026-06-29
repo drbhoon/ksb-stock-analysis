@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 # Game Configuration Defaults
 STARTING_CAPITAL = 0.0
-EXPOSURE_CAP = 50000.0
+EXPOSURE_CAP = 100000.0
 INTEREST_RATE_MONTHLY = 0.01
 SLIPPAGE_RATE = 0.001
 BUST_THRESHOLD = 0.0
@@ -773,7 +773,7 @@ def draw_loan_funds(user_id: str, amount: float) -> Dict[str, Any]:
         cash = row["cash"]
         loan = row["loan_principal"]
         
-        # Validate Cap: loan principal cannot exceed ₹50,000 (exposure ₹1,00,000 cap inclusive of ₹50,000 capital)
+        # Validate cap: loan principal cannot exceed the configured game credit limit.
         max_loan_allowed = EXPOSURE_CAP - row["starting_capital"]
         if loan + amount > max_loan_allowed:
             raise ValueError(f"Borrowing cap breached. Maximum loan headroom is ₹{max_loan_allowed - loan:,.2f}")

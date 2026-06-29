@@ -206,9 +206,11 @@ class TestGameService(unittest.TestCase):
         self.assertEqual(res["cash"], 20000.0)
         self.assertEqual(res["loan_principal"], 20000.0)
         
-        # 2. Exposure cap limit: total loan principal cannot exceed ₹50,000
-        # Borrow another 30,000 is allowed (reaches ₹50,000)
+        # 2. Exposure cap limit: total loan principal cannot exceed ₹1,00,000
+        # Borrow another 80,000 is allowed (reaches ₹1,00,000)
         game_service.draw_loan_funds('test-user', 30000.0)
+        game_service.draw_loan_funds('test-user', 30000.0)
+        game_service.draw_loan_funds('test-user', 20000.0)
         
         # Borrowing more should fail
         with self.assertRaises(ValueError) as ctx:
@@ -218,8 +220,8 @@ class TestGameService(unittest.TestCase):
         # 3. Repayment of loan
         res = game_service.repay_loan_funds('test-user', 10000.0)
         self.assertTrue(res["success"])
-        self.assertEqual(res["cash"], 40000.0) # 50,000 cash - 10,000 repayment
-        self.assertEqual(res["loan_principal"], 40000.0)
+        self.assertEqual(res["cash"], 90000.0) # 1,00,000 cash - 10,000 repayment
+        self.assertEqual(res["loan_principal"], 90000.0)
         
         # Repay exceeds principal should fail
         with game_service.get_conn() as conn:
@@ -227,7 +229,7 @@ class TestGameService(unittest.TestCase):
             conn.commit()
             
         with self.assertRaises(ValueError) as ctx:
-            game_service.repay_loan_funds('test-user', 50000.0)
+            game_service.repay_loan_funds('test-user', 100000.0)
         self.assertIn("exceeds total outstanding debt", str(ctx.exception))
         
         # Repay exceeds cash should fail
