@@ -546,7 +546,7 @@ export const SingleStockAnalysis: React.FC<SingleStockAnalysisProps> = ({
           <Activity size={48} style={{ color: 'var(--color-primary)', margin: '0 auto 16px', opacity: 0.3 }} />
           <h3>Build Custom Portfolio Line-by-Line</h3>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', maxWidth: '440px', margin: '8px auto 0', lineHeight: '1.5' }}>
-            Use the autocomplete search bar above to fetch and compile stock details line-by-line. Once you add **5 or more stocks**, you can export the compiled portfolio report as a structured spreadsheet!
+            Use the autocomplete search bar above to fetch and compile stock details line-by-line. Once you add <strong style={{ color: 'var(--text-main)' }}>5 or more stocks</strong>, you can export the compiled portfolio report as a structured spreadsheet!
           </p>
         </div>
       )}

@@ -123,6 +123,22 @@ def init_db() -> None:
                 quantity      INTEGER NOT NULL,
                 created_at    TEXT DEFAULT (datetime('now'))
             );
+
+            CREATE TABLE IF NOT EXISTS game_reset_requests (
+                id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id        TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                portfolio_id   INTEGER REFERENCES game_portfolios(id) ON DELETE SET NULL,
+                season         INTEGER NOT NULL,
+                status         TEXT NOT NULL DEFAULT 'PENDING',
+                requested_at   TEXT DEFAULT (datetime('now')),
+                reviewed_at    TEXT,
+                reviewed_by    TEXT REFERENCES users(id) ON DELETE SET NULL,
+                admin_note     TEXT
+            );
+
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_game_reset_requests_one_pending
+            ON game_reset_requests(user_id)
+            WHERE status = 'PENDING';
         """)
     logger.info(f"Database initialised at {DB_PATH}")
 

@@ -331,11 +331,19 @@ def get_portfolio_summary(user_id: str) -> Dict[str, Any]:
             lifetime_pnl += (ps["cash"] - ps["starting_capital"])
             
         loan_headroom = max(0.0, (EXPOSURE_CAP - portfolio.get("starting_capital", 0.0)) - loan)
+        pending_reset = conn.execute("""
+            SELECT id, requested_at FROM game_reset_requests
+            WHERE user_id = ? AND status = 'PENDING'
+            ORDER BY requested_at DESC
+            LIMIT 1
+        """, (user_id,)).fetchone()
         
         return {
             "id": portfolio_id,
             "season": portfolio["season"],
             "cash": cash,
+            "trading_cash": cash,
+            "available_cash": loan_headroom,
             "loan_principal": loan,
             "accrued_interest": interest,
             "holdings_value": holdings_value,
@@ -343,8 +351,109 @@ def get_portfolio_summary(user_id: str) -> Dict[str, Any]:
             "season_pnl": season_pnl,
             "lifetime_pnl": lifetime_pnl,
             "loan_headroom": loan_headroom,
+            "reset_request_pending": bool(pending_reset),
+            "reset_request_id": pending_reset["id"] if pending_reset else None,
+            "reset_requested_at": pending_reset["requested_at"] if pending_reset else None,
             "is_bust": (net_worth < BUST_THRESHOLD) or (net_worth == BUST_THRESHOLD and (loan > 0.0 or holdings_value > 0.0))
         }
+
+def request_portfolio_reset(user_id: str) -> Dict[str, Any]:
+    """Records a user request for an admin-approved game reset."""
+    with get_conn() as conn:
+        portfolio = conn.execute("""
+            SELECT id, season FROM game_portfolios WHERE user_id = ? AND is_active = 1
+        """, (user_id,)).fetchone()
+
+        if not portfolio:
+            raise ValueError("No active portfolio session found.")
+
+        try:
+            cursor = conn.execute("""
+                INSERT INTO game_reset_requests (user_id, portfolio_id, season)
+                VALUES (?, ?, ?)
+            """, (user_id, portfolio["id"], portfolio["season"]))
+        except sqlite3.IntegrityError:
+            existing = conn.execute("""
+                SELECT id, requested_at FROM game_reset_requests
+                WHERE user_id = ? AND status = 'PENDING'
+                ORDER BY requested_at DESC
+                LIMIT 1
+            """, (user_id,)).fetchone()
+            return {
+                "success": True,
+                "already_pending": True,
+                "request_id": existing["id"] if existing else None,
+                "requested_at": existing["requested_at"] if existing else None,
+                "message": "Your reset request is already waiting for admin review."
+            }
+
+        conn.commit()
+        return {
+            "success": True,
+            "already_pending": False,
+            "request_id": cursor.lastrowid,
+            "message": "Reset request sent to the admin for review."
+        }
+
+def list_reset_requests(status: str = "PENDING") -> List[Dict[str, Any]]:
+    """Returns game reset requests for the admin panel."""
+    normalized = status.upper().strip()
+    allowed = {"PENDING", "APPROVED", "DENIED", "ALL"}
+    if normalized not in allowed:
+        raise ValueError(f"status must be one of {sorted(allowed)}")
+
+    query = """
+        SELECT
+            grr.*,
+            u.email,
+            u.name,
+            u.picture,
+            gp.cash,
+            gp.loan_principal,
+            gp.accrued_interest
+        FROM game_reset_requests grr
+        LEFT JOIN users u ON u.id = grr.user_id
+        LEFT JOIN game_portfolios gp ON gp.id = grr.portfolio_id
+    """
+    params: Tuple[Any, ...] = ()
+    if normalized != "ALL":
+        query += " WHERE grr.status = ?"
+        params = (normalized,)
+    query += " ORDER BY grr.requested_at DESC"
+
+    with get_conn() as conn:
+        rows = conn.execute(query, params).fetchall()
+        return [dict(row) for row in rows]
+
+def review_reset_request(request_id: int, admin_user_id: str, approve: bool, admin_note: str = "") -> Dict[str, Any]:
+    """Approves or denies a game reset request."""
+    with get_conn() as conn:
+        req = conn.execute("""
+            SELECT * FROM game_reset_requests WHERE id = ?
+        """, (request_id,)).fetchone()
+
+        if not req:
+            raise ValueError("Reset request not found.")
+        if req["status"] != "PENDING":
+            raise ValueError(f"Reset request has already been {req['status'].lower()}.")
+
+    status = "APPROVED" if approve else "DENIED"
+    new_season = restart_portfolio(req["user_id"]) if approve else None
+
+    with get_conn() as conn:
+        conn.execute("""
+            UPDATE game_reset_requests
+            SET status = ?, reviewed_at = datetime('now'), reviewed_by = ?, admin_note = ?
+            WHERE id = ?
+        """, (status, admin_user_id, admin_note, request_id))
+        conn.commit()
+
+    return {
+        "success": True,
+        "request_id": request_id,
+        "status": status,
+        "season": new_season
+    }
 
 def restart_portfolio(user_id: str) -> int:
     """Closes the current active season, records its P&L, and starts a fresh season."""

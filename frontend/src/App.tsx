@@ -10,8 +10,10 @@ import { LearnGuide } from './components/LearnGuide';
 import { PaperTrading } from './components/PaperTrading';
 import { ShieldAlert, TrendingUp, LogOut } from 'lucide-react';
 
-const API_BASE_URL = window.location.origin.includes('localhost:5173') 
-  ? 'http://localhost:8000' 
+const isLocalFrontend =
+  window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const API_BASE_URL = isLocalFrontend && window.location.port === '5173'
+  ? 'http://localhost:8000'
   : window.location.origin;
 
 function App() {
@@ -351,6 +353,17 @@ function App() {
     const buyCount = recalculatedResults.filter((r: any) => r.signal === "BUY").length;
     const holdCount = recalculatedResults.filter((r: any) => r.signal === "HOLD").length;
     const sellCount = recalculatedResults.filter((r: any) => r.signal === "SELL").length;
+    const holdingRows = recalculatedResults.filter((r: any) => Number(r.units) > 0 && Number(r.buy_price) > 0);
+    const investedValue = holdingRows.reduce((acc: number, curr: any) => acc + (Number(curr.invested_value) || 0), 0);
+    const currentValue = holdingRows.reduce((acc: number, curr: any) => acc + (Number(curr.current_value) || 0), 0);
+    const pnl = currentValue - investedValue;
+    const pnlPercent = investedValue ? (pnl / investedValue) * 100 : null;
+    const resultsWithWeights = recalculatedResults.map((stock: any) => ({
+      ...stock,
+      position_weight_pct: currentValue && Number(stock.current_value) > 0
+        ? (Number(stock.current_value) / currentValue) * 100
+        : null
+    }));
     
     const avgScore = total ? (recalculatedResults.reduce((acc: number, curr: any) => acc + curr.combined_score, 0) / total) : 0;
     
@@ -372,7 +385,25 @@ function App() {
         avg_score: avgScore,
         sentiment
       },
-      results: recalculatedResults
+      portfolio_stats: {
+        has_holdings: holdingRows.length > 0,
+        holdings_count: holdingRows.length,
+        invested_value: investedValue,
+        current_value: currentValue,
+        pnl,
+        pnl_percent: pnlPercent,
+        largest_holdings: resultsWithWeights
+          .filter((r: any) => Number(r.current_value) > 0)
+          .sort((a: any, b: any) => Number(b.current_value) - Number(a.current_value))
+          .slice(0, 5)
+          .map((r: any) => ({
+            symbol: r.symbol,
+            company_name: r.company_name,
+            current_value: r.current_value,
+            position_weight_pct: r.position_weight_pct
+          }))
+      },
+      results: resultsWithWeights
     };
   }, [portfolioData, weightF, weightT]);
 

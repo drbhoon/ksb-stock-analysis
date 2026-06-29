@@ -223,9 +223,14 @@ def generate_plan(amount: float, risk_profile: str, weight_f: float = 0.6, weigh
         weight_pct = round(100 / n, 1) if n > 0 else 0
         alloc_amount = round(per_stock_amount, 2)
         shares = None
+        share_note = None
         price = stock.get("latest_price")
         if price and price > 0:
-            shares = int(alloc_amount / price)
+            calculated_shares = int(alloc_amount / price)
+            if calculated_shares > 0:
+                shares = calculated_shares
+            else:
+                share_note = "Allocated amount is less than the price of one share."
 
         signal = "BUY" if stock["combined_score"] >= 70 else "HOLD" if stock["combined_score"] >= 40 else "SELL"
 
@@ -234,6 +239,7 @@ def generate_plan(amount: float, risk_profile: str, weight_f: float = 0.6, weigh
             "weight_pct": weight_pct,
             "allocated_amount": alloc_amount,
             "shares": shares,
+            "share_note": share_note,
             "signal": signal
         })
 

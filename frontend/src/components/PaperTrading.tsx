@@ -9,6 +9,8 @@ interface PortfolioSummary {
   id: number;
   season: number;
   cash: number;
+  trading_cash?: number;
+  available_cash?: number;
   loan_principal: number;
   accrued_interest: number;
   holdings_value: number;
@@ -16,6 +18,8 @@ interface PortfolioSummary {
   season_pnl: number;
   lifetime_pnl: number;
   loan_headroom: number;
+  reset_request_pending?: boolean;
+  reset_requested_at?: string | null;
   is_bust: boolean;
 }
 
@@ -93,6 +97,7 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token,
   const [loanAction, setLoanAction] = useState<'BORROW' | 'REPAY'>('BORROW');
   const [loanAmount, setLoanAmount] = useState<number | ''>('');
   const [executingLoan, setExecutingLoan] = useState<boolean>(false);
+  const [requestingReset, setRequestingReset] = useState<boolean>(false);
 
   // Market hours status helper
   const [marketOpen, setMarketOpen] = useState<boolean>(false);
@@ -338,6 +343,36 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token,
     }
   };
 
+  // Reset Game Request
+  const handleRequestResetGame = async () => {
+    if (!window.confirm("Send a reset request to the admin? Your game will only reset if the admin approves it.")) {
+      return;
+    }
+
+    setRequestingReset(true);
+    setActionError(null);
+    setSuccessMsg(null);
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/game/portfolio/reset-request`, {
+        method: 'POST',
+        headers: authHeaders()
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || 'Restart failed.');
+      }
+
+      setSuccessMsg(data.message || 'Reset request sent to the admin.');
+      await fetchGameData(true);
+    } catch (err: any) {
+      setActionError(err.message);
+    } finally {
+      setRequestingReset(false);
+    }
+  };
+
   // Quick action: set trade ticker from holdings list
   const selectHoldingForTrade = (symbol: string, compName: string) => {
     handleSelectStock({
@@ -364,7 +399,7 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token,
   const dailyInterest = summary.loan_principal * (0.01 / 30.0);
   const totalValue = summary.holdings_value;
   const isLoss = summary.season_pnl < 0;
-  const netWorthReturn = (summary.season_pnl / 50000) * 100;
+  const netWorthReturn = summary.loan_principal > 0 ? (summary.season_pnl / summary.loan_principal) * 100 : 0;
 
   return (
     <div style={{ padding: '32px 40px', maxWidth: '1440px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '28px' }}>
@@ -384,20 +419,38 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token,
         </div>
 
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-          {/* Market Status Banner */}
-          <div className="glass-panel" style={{
-            padding: '8px 16px',
-            borderRadius: '20px',
-            fontSize: '0.82rem',
-            fontWeight: 700,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            background: marketOpen ? 'rgba(16, 185, 129, 0.05)' : 'rgba(239, 68, 68, 0.05)',
-            border: marketOpen ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(239, 68, 68, 0.2)'
-          }}>
-            <span className={`pulse-dot ${marketOpen ? 'pulse-dot-buy' : 'pulse-dot-sell'}`} />
-            {marketOpen ? 'MARKET OPEN (IST)' : 'MARKET CLOSED (IST)'}
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+            {/* Market Status Banner */}
+            <div className="glass-panel" style={{
+              padding: '8px 16px',
+              borderRadius: '20px',
+              fontSize: '0.82rem',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              background: marketOpen ? 'rgba(16, 185, 129, 0.05)' : 'rgba(239, 68, 68, 0.05)',
+              border: marketOpen ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(239, 68, 68, 0.2)'
+            }}>
+              <span className={`pulse-dot ${marketOpen ? 'pulse-dot-buy' : 'pulse-dot-sell'}`} />
+              {marketOpen ? 'MARKET OPEN (IST)' : 'MARKET CLOSED (IST)'}
+            </div>
+
+            <button
+              onClick={handleRequestResetGame}
+              disabled={requestingReset || summary.reset_request_pending}
+              className="btn-secondary"
+              style={{
+                padding: '8px 14px',
+                borderRadius: '20px',
+                color: summary.reset_request_pending ? 'var(--color-hold)' : 'var(--color-sell)',
+                border: summary.reset_request_pending ? '1px solid rgba(245, 158, 11, 0.25)' : '1px solid rgba(239, 68, 68, 0.2)',
+                opacity: requestingReset ? 0.6 : 1
+              }}
+              title={summary.reset_request_pending ? 'Reset request is waiting for admin review' : 'Ask admin to reset your game'}
+            >
+              {requestingReset ? 'Sending...' : summary.reset_request_pending ? 'Reset Requested' : 'Request Reset'}
+            </button>
           </div>
 
           <button 
@@ -455,7 +508,8 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token,
             color: isLoss ? 'var(--color-sell)' : 'var(--color-buy)'
           }}>
             {isLoss ? <TrendingDown size={14} /> : <TrendingUp size={14} />}
-            {isLoss ? '' : '+'}{summary.season_pnl.toLocaleString('en-IN', { maximumFractionDigits: 0 })} ({netWorthReturn.toFixed(2)}%)
+            {isLoss ? '' : '+'}{summary.season_pnl.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+            {summary.loan_principal > 0 ? ` (${netWorthReturn.toFixed(2)}%)` : ''}
           </div>
         </div>
 
@@ -470,14 +524,17 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token,
           </span>
         </div>
 
-        {/* Cash Balance */}
+        {/* Available to Borrow */}
         <div className="glass-panel" style={{ padding: '24px' }}>
-          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.04em' }}>AVAILABLE CASH</div>
+          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.04em' }}>AVAILABLE TO BORROW</div>
           <h2 style={{ fontSize: '1.6rem', fontWeight: 800, marginTop: '8px', color: 'white' }}>
-            ₹{summary.cash.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            ₹{summary.loan_headroom.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </h2>
           <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '6px', display: 'block' }}>
-            Includes unused borrowed funds
+            Bank credit still available
+          </span>
+          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+            Trading cash: ₹{summary.cash.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
           </span>
         </div>
 

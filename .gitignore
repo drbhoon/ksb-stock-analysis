@@ -19,6 +19,7 @@ dist-ssr/
 # Logs and databases
 *.log
 *.sqlite
+backend/data/
 
 # OS Metadata
 .DS_Store

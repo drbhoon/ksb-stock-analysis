@@ -23,7 +23,8 @@ from auth import (
     build_google_auth_url, validate_state, exchange_code_for_tokens,
     get_google_user_info, create_jwt, verify_jwt, extract_bearer_token,
     verify_admin_password, is_allowed_email,
-    GOOGLE_CLIENT_ID, APP_URL
+    GOOGLE_CLIENT_ID, APP_URL,
+    ADMIN_USER_ID, ADMIN_USER_EMAIL, ADMIN_USER_NAME
 )
 
 
@@ -55,6 +56,9 @@ _ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:5173",
     "http://localhost:8000",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:8000",
 ]
 app.add_middleware(
     CORSMiddleware,
@@ -171,6 +175,7 @@ async def admin_login(req: AdminLoginRequest):
     token = verify_admin_password(req.password)
     if not token:
         raise HTTPException(status_code=401, detail="Invalid admin password or admin access is disabled.")
+    upsert_user(ADMIN_USER_ID, ADMIN_USER_EMAIL, ADMIN_USER_NAME, "")
     return {"success": True, "token": token}
 
 # ── Current user profile ──────────────────────────────────────────────────────
@@ -206,6 +211,8 @@ class PortfolioSaveRequest(BaseModel):
 async def save_user_portfolio(req: PortfolioSaveRequest, user: Dict = Depends(get_current_user)):
     """Save the user's portfolio analysis to the database."""
     user_id = user.get("sub")
+    if user_id == ADMIN_USER_ID and not get_user(ADMIN_USER_ID):
+        upsert_user(ADMIN_USER_ID, ADMIN_USER_EMAIL, ADMIN_USER_NAME, "")
     save_portfolio(user_id, req.file_name, req.data)
     return {"success": True}
 
@@ -381,6 +388,9 @@ def analyze_single_stock_task(row: Dict[str, Any], weight_f: float, weight_t: fl
     symbol_hint = row.get("uploaded_symbol", "")
     name_hint = row.get("uploaded_name", "")
     row_idx = row.get("row_index", 0)
+    units = row.get("units")
+    buy_price = row.get("buy_price")
+    buy_date = row.get("buy_date", "")
     
     try:
         # 1. Resolve ISIN
@@ -408,6 +418,17 @@ def analyze_single_stock_task(row: Dict[str, Any], weight_f: float, weight_t: fl
         analysis["uploaded_isin"] = isin
         analysis["uploaded_symbol"] = symbol_hint
         analysis["row_index"] = row_idx
+        analysis["units"] = units
+        analysis["buy_price"] = buy_price
+        analysis["buy_date"] = buy_date
+        if units and buy_price and analysis.get("latest_price"):
+            invested_value = float(units) * float(buy_price)
+            current_value = float(units) * float(analysis["latest_price"])
+            pnl = current_value - invested_value
+            analysis["invested_value"] = invested_value
+            analysis["current_value"] = current_value
+            analysis["pnl"] = pnl
+            analysis["pnl_percent"] = (pnl / invested_value) * 100 if invested_value else None
         return {"success": True, "data": analysis}
         
     except Exception as e:
@@ -465,6 +486,19 @@ async def upload_portfolio(
                     
         # Sort results by original row index to keep ordering consistent
         results.sort(key=lambda x: x.get("row_index", 0))
+
+        holding_rows = [
+            r for r in results
+            if r.get("units") and r.get("buy_price") and r.get("current_value") is not None
+        ]
+        invested_value = sum(float(r.get("invested_value") or 0) for r in holding_rows)
+        current_value = sum(float(r.get("current_value") or 0) for r in holding_rows)
+        pnl = current_value - invested_value
+        pnl_percent = (pnl / invested_value) * 100 if invested_value else None
+        if current_value:
+            for r in results:
+                if r.get("current_value") is not None:
+                    r["position_weight_pct"] = (float(r.get("current_value") or 0) / current_value) * 100
         
         # Compute portfolio stats
         total_stocks = len(results)
@@ -493,6 +527,23 @@ async def upload_portfolio(
                 "sell_count": sell_count,
                 "avg_score": avg_combined_score,
                 "sentiment": portfolio_sentiment
+            },
+            "portfolio_stats": {
+                "has_holdings": len(holding_rows) > 0,
+                "holdings_count": len(holding_rows),
+                "invested_value": invested_value,
+                "current_value": current_value,
+                "pnl": pnl,
+                "pnl_percent": pnl_percent,
+                "largest_holdings": [
+                    {
+                        "symbol": r.get("symbol"),
+                        "company_name": r.get("company_name"),
+                        "current_value": r.get("current_value"),
+                        "position_weight_pct": r.get("position_weight_pct")
+                    }
+                    for r in sorted(holding_rows, key=lambda x: float(x.get("current_value") or 0), reverse=True)[:5]
+                ]
             },
             "results": results,
             "failed": failed
@@ -618,6 +669,10 @@ class TradeRequest(BaseModel):
 class LoanRequest(BaseModel):
     amount: float
 
+class ResetReviewRequest(BaseModel):
+    approve: bool
+    admin_note: str = ""
+
 @app.get("/api/game/portfolio")
 async def game_portfolio(user: Dict = Depends(get_current_user)):
     try:
@@ -629,10 +684,11 @@ async def game_portfolio(user: Dict = Depends(get_current_user)):
 
 @app.post("/api/game/portfolio/restart")
 async def game_portfolio_restart(user: Dict = Depends(get_current_user)):
+    """Legacy route guarded so users cannot bypass admin reset approval."""
     from auth import ADMIN_USER_ID
     is_admin = (user.get("sub") == ADMIN_USER_ID) or (user.get("email") == "drbhoon@gmail.com")
     if not is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required to restart game.")
+        raise HTTPException(status_code=403, detail="Please request a game reset. An admin must approve it first.")
     try:
         new_season = game_service.restart_portfolio(user["sub"])
         return {
@@ -642,6 +698,48 @@ async def game_portfolio_restart(user: Dict = Depends(get_current_user)):
         }
     except Exception as e:
         logger.error(f"Failed to restart game portfolio: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/game/portfolio/reset-request")
+async def game_portfolio_reset_request(user: Dict = Depends(get_current_user)):
+    try:
+        return game_service.request_portfolio_reset(user["sub"])
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to request game reset: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/admin/game/reset-requests")
+async def admin_game_reset_requests(status: str = "PENDING", user: Dict = Depends(get_current_user)):
+    from auth import ADMIN_USER_ID
+    is_admin = (user.get("sub") == ADMIN_USER_ID) or (user.get("email") == "drbhoon@gmail.com")
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required.")
+    try:
+        return {"requests": game_service.list_reset_requests(status)}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to list game reset requests: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/admin/game/reset-requests/{request_id}/review")
+async def admin_review_game_reset_request(
+    request_id: int,
+    req: ResetReviewRequest,
+    user: Dict = Depends(get_current_user)
+):
+    from auth import ADMIN_USER_ID
+    is_admin = (user.get("sub") == ADMIN_USER_ID) or (user.get("email") == "drbhoon@gmail.com")
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required.")
+    try:
+        return game_service.review_reset_request(request_id, user["sub"], req.approve, req.admin_note)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to review game reset request: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/game/holdings")

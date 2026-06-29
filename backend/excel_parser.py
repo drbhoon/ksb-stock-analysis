@@ -17,9 +17,10 @@ class ExcelParser:
         
         # Load into DataFrame based on extension
         try:
-            if file_name.endswith(('.xlsx', '.xls')):
+            lower_name = file_name.lower()
+            if lower_name.endswith(('.xlsx', '.xls')):
                 df = pd.read_excel(io.BytesIO(file_bytes))
-            elif file_name.endswith('.csv'):
+            elif lower_name.endswith('.csv'):
                 # Try reading with utf-8 first, fallback to latin-1
                 try:
                     df = pd.read_csv(io.BytesIO(file_bytes), encoding='utf-8')
@@ -35,9 +36,12 @@ class ExcelParser:
         df.columns = [str(c).strip() for c in df.columns]
         
         # Intelligent header matching
-        isin_col, symbol_col, name_col = ExcelParser._detect_columns(df.columns.tolist())
+        isin_col, symbol_col, name_col, units_col, buy_price_col, buy_date_col = ExcelParser._detect_columns(df.columns.tolist())
         
-        logger.info(f"Detected columns - ISIN: '{isin_col}', Symbol: '{symbol_col}', Company Name: '{name_col}'")
+        logger.info(
+            "Detected columns - ISIN: '%s', Symbol: '%s', Company Name: '%s', Units: '%s', Buy Price: '%s', Buy Date: '%s'",
+            isin_col, symbol_col, name_col, units_col, buy_price_col, buy_date_col
+        )
         
         if not isin_col and not symbol_col:
             raise ValueError(
@@ -51,6 +55,9 @@ class ExcelParser:
             isin = str(row[isin_col]).strip() if isin_col and pd.notna(row[isin_col]) else ""
             symbol = str(row[symbol_col]).strip() if symbol_col and pd.notna(row[symbol_col]) else ""
             name = str(row[name_col]).strip() if name_col and pd.notna(row[name_col]) else ""
+            units = ExcelParser._to_float(row[units_col]) if units_col else None
+            buy_price = ExcelParser._to_float(row[buy_price_col]) if buy_price_col else None
+            buy_date = ExcelParser._to_date_string(row[buy_date_col]) if buy_date_col else ""
             
             # Clean symbols (e.g. remove trailing spacing, convert to upper)
             isin = isin.upper().strip()
@@ -64,23 +71,32 @@ class ExcelParser:
                 "row_index": idx + 1,
                 "uploaded_isin": isin,
                 "uploaded_symbol": symbol,
-                "uploaded_name": name
+                "uploaded_name": name,
+                "units": units,
+                "buy_price": buy_price,
+                "buy_date": buy_date
             })
             
         logger.info(f"Successfully extracted {len(parsed_records)} rows from {file_name}")
         return parsed_records
 
     @staticmethod
-    def _detect_columns(columns: List[str]) -> Tuple[Optional[str], Optional[str], Optional[str]]:
-        """Matches column headers using regex patterns to find ISIN, Ticker, and Name fields."""
+    def _detect_columns(columns: List[str]) -> Tuple[Optional[str], Optional[str], Optional[str], Optional[str], Optional[str], Optional[str]]:
+        """Matches column headers using regex patterns to find identity and holding fields."""
         isin_col = None
         symbol_col = None
         name_col = None
+        units_col = None
+        buy_price_col = None
+        buy_date_col = None
         
         # Regex patterns
         isin_pattern = re.compile(r'(isin|isin\s*code|isin\s*number|security\s*isin|isin_code)', re.IGNORECASE)
         symbol_pattern = re.compile(r'(symbol|symb|ticker|stock\s*symbol|stock\s*symb|code|security\s*code)', re.IGNORECASE)
         name_pattern = re.compile(r'(name|company|company\s*name|description|security\s*name|company_name)', re.IGNORECASE)
+        units_pattern = re.compile(r'(units?|shares?|qty|quantity|holding\s*qty|no\.?\s*of\s*shares)', re.IGNORECASE)
+        buy_price_pattern = re.compile(r'(buy\s*price|purchase\s*price|avg\.?\s*price|average\s*price|cost\s*price|price\s*paid)', re.IGNORECASE)
+        buy_date_pattern = re.compile(r'(buy\s*date|purchase\s*date|acquisition\s*date|date\s*of\s*purchase)', re.IGNORECASE)
         
         # 1. Look for ISIN
         for col in columns:
@@ -121,4 +137,51 @@ class ExcelParser:
                     name_col = col
                     break
                     
-        return isin_col, symbol_col, name_col
+        for col in columns:
+            if col in [isin_col, symbol_col, name_col]:
+                continue
+            if units_pattern.search(col):
+                units_col = col
+                break
+
+        for col in columns:
+            if col in [isin_col, symbol_col, name_col, units_col]:
+                continue
+            if buy_price_pattern.search(col):
+                buy_price_col = col
+                break
+
+        for col in columns:
+            if col in [isin_col, symbol_col, name_col, units_col, buy_price_col]:
+                continue
+            if buy_date_pattern.search(col):
+                buy_date_col = col
+                break
+
+        return isin_col, symbol_col, name_col, units_col, buy_price_col, buy_date_col
+
+    @staticmethod
+    def _to_float(value: Any) -> Optional[float]:
+        if pd.isna(value):
+            return None
+        if isinstance(value, (int, float)):
+            return float(value)
+        cleaned = re.sub(r'[₹,\s]', '', str(value))
+        if not cleaned:
+            return None
+        try:
+            return float(cleaned)
+        except ValueError:
+            return None
+
+    @staticmethod
+    def _to_date_string(value: Any) -> str:
+        if pd.isna(value):
+            return ""
+        try:
+            parsed = pd.to_datetime(value, errors='coerce')
+            if pd.isna(parsed):
+                return str(value).strip()
+            return parsed.date().isoformat()
+        except Exception:
+            return str(value).strip()

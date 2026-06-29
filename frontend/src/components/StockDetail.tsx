@@ -92,6 +92,7 @@ export const StockDetail: React.FC<StockDetailProps> = ({
             onClick={() => onRefresh(symbol, is_etf)}
             style={{ padding: '8px 12px' }}
             title="Refresh Live Data"
+            aria-label="Refresh live stock data"
           >
             <RefreshCw size={16} />
           </button>
@@ -99,6 +100,8 @@ export const StockDetail: React.FC<StockDetailProps> = ({
             className="btn-secondary" 
             onClick={onClose}
             style={{ padding: '8px 12px' }}
+            title="Close stock details"
+            aria-label="Close stock details"
           >
             <X size={16} />
           </button>

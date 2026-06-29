@@ -17,6 +17,7 @@ interface Allocation {
   weight_pct: number;
   allocated_amount: number;
   shares: number | null;
+  share_note?: string | null;
   signal: 'BUY' | 'HOLD' | 'SELL';
 }
 
@@ -120,7 +121,7 @@ function DonutChart({ data }: { data: { label: string; pct: number; color: strin
 }
 
 export const SmartPlanner: React.FC<Props> = ({ API_BASE_URL, token, onSelectStock }) => {
-  const [amount, setAmount] = useState('');
+  const [amount, setAmount] = useState('1,00,000');
   const [profile, setProfile] = useState<RiskProfile>('moderate');
   const [isLoading, setIsLoading] = useState(false);
   const [plan, setPlan] = useState<PlanResult | null>(null);
@@ -129,8 +130,11 @@ export const SmartPlanner: React.FC<Props> = ({ API_BASE_URL, token, onSelectSto
   const authHeaders = (): HeadersInit =>
     token ? { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
 
+  const parsedAmount = parseFloat(amount.replace(/,/g, ''));
+  const isAmountValid = Boolean(parsedAmount && parsedAmount >= 1000);
+
   const handleGenerate = async () => {
-    const numAmount = parseFloat(amount.replace(/,/g, ''));
+    const numAmount = parsedAmount;
     if (!numAmount || numAmount < 1000) {
       setError('Please enter a valid investment amount (minimum ₹1,000).');
       return;
@@ -217,7 +221,7 @@ export const SmartPlanner: React.FC<Props> = ({ API_BASE_URL, token, onSelectSto
             <span style={{ fontSize: '1.4rem', color: 'var(--color-primary)', fontWeight: 700 }}>₹</span>
             <input
               type="text"
-              placeholder="1,00,000"
+              placeholder="Enter amount"
               value={amount}
               onChange={e => setAmount(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleGenerate()}
@@ -274,9 +278,9 @@ export const SmartPlanner: React.FC<Props> = ({ API_BASE_URL, token, onSelectSto
         {/* Generate button */}
         <button
           onClick={handleGenerate}
-          disabled={isLoading || !amount}
+          disabled={isLoading || !isAmountValid}
           className="btn-primary"
-          style={{ opacity: !amount ? 0.5 : 1, display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1rem', padding: '14px 28px' }}
+          style={{ opacity: !isAmountValid ? 0.5 : 1, display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1rem', padding: '14px 28px' }}
         >
           {isLoading ? <RefreshCw size={18} style={{ animation: 'spin 1.2s linear infinite' }} /> : <Zap size={18} />}
           {isLoading ? 'Generating Plan…' : 'Generate Portfolio Plan'}
@@ -416,7 +420,11 @@ export const SmartPlanner: React.FC<Props> = ({ API_BASE_URL, token, onSelectSto
                           {a.latest_price !== null ? `₹${a.latest_price.toFixed(2)}` : '—'}
                         </td>
                         <td style={{ textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>
-                          {a.shares !== null ? a.shares : '—'}
+                          {a.shares !== null ? a.shares : (
+                            <span title={a.share_note || 'Unable to calculate shares'} style={{ color: 'var(--text-dim)' }}>
+                              Less than 1
+                            </span>
+                          )}
                         </td>
                       </tr>
                     ))}

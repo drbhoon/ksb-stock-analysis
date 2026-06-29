@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Search, RefreshCw, Clock, Calendar, ShieldCheck, Mail } from 'lucide-react';
+import { Users, Search, RefreshCw, Clock, Calendar, ShieldCheck, Mail, RotateCcw, Check, X } from 'lucide-react';
 
 interface UserRecord {
   id: string;
@@ -10,6 +10,20 @@ interface UserRecord {
   last_login: string;
 }
 
+interface ResetRequest {
+  id: number;
+  user_id: string;
+  portfolio_id: number | null;
+  season: number;
+  status: string;
+  requested_at: string;
+  email?: string;
+  name?: string;
+  cash?: number;
+  loan_principal?: number;
+  accrued_interest?: number;
+}
+
 interface AdminPanelProps {
   API_BASE_URL: string;
   token: string | null;
@@ -18,6 +32,8 @@ interface AdminPanelProps {
 export const AdminPanel: React.FC<AdminPanelProps> = ({ API_BASE_URL, token }) => {
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [resetRequests, setResetRequests] = useState<ResetRequest[]>([]);
+  const [reviewingRequestId, setReviewingRequestId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
 
@@ -38,10 +54,47 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ API_BASE_URL, token }) =
       }
       const data = await res.json();
       setUsers(data.users || []);
+
+      const resetRes = await fetch(`${API_BASE_URL}/api/admin/game/reset-requests?status=PENDING`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (resetRes.ok) {
+        const resetData = await resetRes.json();
+        setResetRequests(resetData.requests || []);
+      }
     } catch (err: any) {
       setError(err.message || 'An error occurred while loading user records.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const reviewResetRequest = async (requestId: number, approve: boolean) => {
+    setReviewingRequestId(requestId);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/game/reset-requests/${requestId}/review`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          approve,
+          admin_note: approve ? 'Approved from admin panel.' : 'Denied from admin panel.'
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || 'Failed to review reset request.');
+      }
+      await fetchUsers();
+    } catch (err: any) {
+      setError(err.message || 'Failed to review reset request.');
+    } finally {
+      setReviewingRequestId(null);
     }
   };
 
@@ -160,6 +213,82 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ API_BASE_URL, token }) =
               </div>
             ))}
           </div>
+
+          {/* Reset Requests */}
+          {resetRequests.length > 0 && (
+            <div className="glass-panel" style={{ padding: '28px', marginBottom: '28px', borderLeft: '4px solid var(--color-hold)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', gap: '12px', flexWrap: 'wrap' }}>
+                <h3 style={{ fontSize: '1.05rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <RotateCcw size={18} style={{ color: 'var(--color-hold)' }} />
+                  Pending Game Reset Requests
+                </h3>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                  {resetRequests.length} waiting
+                </span>
+              </div>
+
+              <div style={{ overflowX: 'auto' }}>
+                <table className="premium-table">
+                  <thead>
+                    <tr>
+                      <th>User</th>
+                      <th>Season</th>
+                      <th>Requested</th>
+                      <th style={{ textAlign: 'right' }}>Trading Cash</th>
+                      <th style={{ textAlign: 'right' }}>Active Loan</th>
+                      <th style={{ textAlign: 'center' }}>Decision</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {resetRequests.map((req) => (
+                      <tr key={req.id}>
+                        <td>
+                          <div style={{ fontWeight: 700, color: 'white', fontSize: '0.88rem' }}>
+                            {req.name || 'Unknown User'}
+                          </div>
+                          <div style={{ color: 'var(--text-muted)', fontSize: '0.74rem', marginTop: '2px' }}>
+                            {req.email || req.user_id}
+                          </div>
+                        </td>
+                        <td style={{ fontWeight: 700 }}>Season {req.season}</td>
+                        <td style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>{formatDate(req.requested_at)}</td>
+                        <td style={{ textAlign: 'right', fontFamily: 'monospace' }}>
+                          ₹{(req.cash || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                        </td>
+                        <td style={{ textAlign: 'right', fontFamily: 'monospace', color: (req.loan_principal || 0) > 0 ? 'var(--color-hold)' : 'var(--text-muted)' }}>
+                          ₹{(req.loan_principal || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
+                            <button
+                              onClick={() => reviewResetRequest(req.id, true)}
+                              disabled={reviewingRequestId === req.id}
+                              className="btn-secondary"
+                              style={{ padding: '7px 10px', color: 'var(--color-buy)', border: '1px solid rgba(16,185,129,0.25)' }}
+                              title="Approve reset request"
+                              aria-label="Approve reset request"
+                            >
+                              <Check size={14} />
+                            </button>
+                            <button
+                              onClick={() => reviewResetRequest(req.id, false)}
+                              disabled={reviewingRequestId === req.id}
+                              className="btn-secondary"
+                              style={{ padding: '7px 10px', color: 'var(--color-sell)', border: '1px solid rgba(239,68,68,0.25)' }}
+                              title="Deny reset request"
+                              aria-label="Deny reset request"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           {/* User Directory Table Card */}
           <div className="glass-panel" style={{ padding: '28px' }}>

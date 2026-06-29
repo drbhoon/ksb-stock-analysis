@@ -18,6 +18,14 @@ interface StockResult {
   uploaded_isin: string;
   uploaded_symbol: string;
   row_index: number;
+  units?: number | null;
+  buy_price?: number | null;
+  buy_date?: string;
+  invested_value?: number | null;
+  current_value?: number | null;
+  pnl?: number | null;
+  pnl_percent?: number | null;
+  position_weight_pct?: number | null;
 }
 
 interface DashboardProps {
@@ -31,6 +39,14 @@ interface DashboardProps {
   setWeightF: (w: number) => void;
   setWeightT: (w: number) => void;
   marketSummary: any[];
+}
+
+function formatINR(value: number | null | undefined): string {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 0
+  }).format(value || 0);
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -51,13 +67,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [showSettings, setShowSettings] = useState(false);
 
   const downloadTemplateCSV = () => {
-    const headers = ["Stock Symb", "Company Name", "ISIN Code"];
+    const headers = ["Stock Symb", "Company Name", "ISIN Code", "Units", "Buy Price", "Buy Date"];
     const sampleRows = [
-      ["GABIND", "GABRIEL INDIA", "INE524A01029"],
-      ["ASHLEY", "ASHOK LEYLAND", "INE208A01029"],
-      ["ELEENG", "ELECON ENGINEERING", "INE205B01031"],
-      ["VARBEV", "VARUN BEVERAGES", "INE200M01039"],
-      ["MAXHEA", "MAX HEALTHCARE", "INE027H01010"]
+      ["GABIND", "GABRIEL INDIA", "INE524A01029", "25", "625", "2024-08-12"],
+      ["ASHLEY", "ASHOK LEYLAND", "INE208A01029", "40", "210", "2024-10-03"],
+      ["ELEENG", "ELECON ENGINEERING", "INE205B01031", "15", "980", "2025-01-15"],
+      ["VARBEV", "VARUN BEVERAGES", "INE200M01039", "20", "540", "2025-03-20"],
+      ["MAXHEA", "MAX HEALTHCARE", "INE027H01010", "18", "760", "2025-05-09"]
     ];
     
     const csvContent = [
@@ -135,6 +151,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const total = portfolioData.analyzed_count;
     return total ? Math.round((portfolioData.stats.sell_count / total) * 100) : 0;
   }, [portfolioData]);
+
+  const portfolioStats = portfolioData?.portfolio_stats;
+  const hasHoldings = Boolean(portfolioStats?.has_holdings);
 
   return (
     <div className="dashboard-shell" style={{ maxWidth: '1440px', margin: '0 auto', padding: '24px 20px' }}>
@@ -391,6 +410,47 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </h3>
               </div>
             </div>
+
+            {hasHoldings && (
+              <>
+                <div className="glass-panel" style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '20px' }}>
+                  <div style={{ background: 'rgba(59, 130, 246, 0.1)', color: 'var(--color-primary)', padding: '16px', borderRadius: '12px' }}>
+                    <BarChart2 size={24} />
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>CURRENT VALUE</span>
+                    <h3 style={{ fontSize: '1.6rem', fontWeight: 800, marginTop: '2px' }}>
+                      {formatINR(portfolioStats.current_value)}
+                    </h3>
+                  </div>
+                </div>
+
+                <div className="glass-panel" style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: '20px' }}>
+                  <div style={{
+                    background: (portfolioStats.pnl || 0) >= 0 ? 'var(--color-buy-trans)' : 'var(--color-sell-trans)',
+                    color: (portfolioStats.pnl || 0) >= 0 ? 'var(--color-buy)' : 'var(--color-sell)',
+                    padding: '16px',
+                    borderRadius: '12px'
+                  }}>
+                    {(portfolioStats.pnl || 0) >= 0 ? <TrendingUp size={24} /> : <TrendingDown size={24} />}
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>PROFIT / LOSS</span>
+                    <h3 style={{
+                      fontSize: '1.6rem',
+                      fontWeight: 800,
+                      marginTop: '2px',
+                      color: (portfolioStats.pnl || 0) >= 0 ? 'var(--color-buy)' : 'var(--color-sell)'
+                    }}>
+                      {formatINR(portfolioStats.pnl)}
+                      <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 400 }}>
+                        {' '}({portfolioStats.pnl_percent !== null && portfolioStats.pnl_percent !== undefined ? portfolioStats.pnl_percent.toFixed(1) : '0.0'}%)
+                      </span>
+                    </h3>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Core Grid: Donut Distribution Chart & File Upload Re-dropzone */}
@@ -594,6 +654,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       <th>Resolved Ticker</th>
                       <th>Company Name</th>
                       <th>ISIN</th>
+                      {hasHoldings && <th style={{ textAlign: 'right' }}>Units</th>}
+                      {hasHoldings && <th style={{ textAlign: 'right' }}>Invested</th>}
+                      {hasHoldings && <th style={{ textAlign: 'right' }}>Value</th>}
+                      {hasHoldings && <th style={{ textAlign: 'right' }}>P/L</th>}
+                      {hasHoldings && <th style={{ textAlign: 'right' }}>Weight</th>}
                       <th style={{ textAlign: 'right' }}>Price (INR)</th>
                       <th style={{ textAlign: 'right' }}>Daily Change</th>
                       <th style={{ textAlign: 'center' }}>Tech Score</th>
@@ -616,6 +681,43 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         <td style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                           {stock.uploaded_isin}
                         </td>
+                        {hasHoldings && (
+                          <td style={{ textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>
+                            {stock.units ?? '—'}
+                          </td>
+                        )}
+                        {hasHoldings && (
+                          <td style={{ textAlign: 'right', fontFamily: 'monospace', fontSize: '0.82rem' }}>
+                            {stock.invested_value ? formatINR(stock.invested_value) : '—'}
+                          </td>
+                        )}
+                        {hasHoldings && (
+                          <td style={{ textAlign: 'right', fontFamily: 'monospace', fontSize: '0.82rem' }}>
+                            {stock.current_value ? formatINR(stock.current_value) : '—'}
+                          </td>
+                        )}
+                        {hasHoldings && (
+                          <td style={{
+                            textAlign: 'right',
+                            fontFamily: 'monospace',
+                            fontSize: '0.82rem',
+                            color: (stock.pnl || 0) >= 0 ? 'var(--color-buy)' : 'var(--color-sell)'
+                          }}>
+                            {stock.pnl !== null && stock.pnl !== undefined ? (
+                              <>
+                                {formatINR(stock.pnl)}
+                                <span style={{ display: 'block', fontSize: '0.7rem' }}>
+                                  {stock.pnl_percent !== null && stock.pnl_percent !== undefined ? `${stock.pnl_percent.toFixed(1)}%` : ''}
+                                </span>
+                              </>
+                            ) : '—'}
+                          </td>
+                        )}
+                        {hasHoldings && (
+                          <td style={{ textAlign: 'right', fontFamily: 'monospace', fontSize: '0.82rem' }}>
+                            {stock.position_weight_pct !== null && stock.position_weight_pct !== undefined ? `${stock.position_weight_pct.toFixed(1)}%` : '—'}
+                          </td>
+                        )}
                         <td style={{ textAlign: 'right', fontWeight: 700, fontFamily: 'var(--font-heading)' }}>
                           {(stock.latest_price || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </td>
