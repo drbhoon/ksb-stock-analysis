@@ -174,11 +174,12 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token 
   useEffect(() => {
     fetchGameData();
     
-    // Set up polling interval every 30 seconds
+    // Poll less aggressively and pause when the page is hidden to avoid hammering market-data APIs.
     const interval = setInterval(() => {
+      if (document.hidden) return;
       updateMarketStatus();
       fetchGameData(true);
-    }, 30000);
+    }, 60000);
 
     return () => clearInterval(interval);
   }, []);

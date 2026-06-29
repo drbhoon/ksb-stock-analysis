@@ -2,6 +2,8 @@ import os
 import sqlite3
 import json
 import logging
+import time
+import concurrent.futures
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional, Tuple
 import yfinance as yf
@@ -17,6 +19,41 @@ EXPOSURE_CAP = 100000.0
 INTEREST_RATE_MONTHLY = 0.01
 SLIPPAGE_RATE = 0.001
 BUST_THRESHOLD = 0.0
+PRICE_CACHE_TTL_SECONDS = 90
+YFINANCE_TIMEOUT_SECONDS = 6
+
+_price_cache: Dict[str, Tuple[float, float]] = {}
+_history_cache: Dict[Tuple[str, str], Tuple[float, Any]] = {}
+_yf_executor = concurrent.futures.ThreadPoolExecutor(max_workers=8, thread_name_prefix="yf-game")
+
+def _run_with_timeout(fn, timeout_seconds: int = YFINANCE_TIMEOUT_SECONDS):
+    future = _yf_executor.submit(fn)
+    return future.result(timeout=timeout_seconds)
+
+def _get_cached_price(symbol: str) -> Optional[float]:
+    cached = _price_cache.get(symbol)
+    if not cached:
+        return None
+    timestamp, price = cached
+    if time.time() - timestamp <= PRICE_CACHE_TTL_SECONDS:
+        return price
+    return None
+
+def _set_cached_price(symbol: str, price: float) -> None:
+    _price_cache[symbol] = (time.time(), price)
+
+def _get_history(symbol: str, period: str):
+    cache_key = (symbol, period)
+    cached = _history_cache.get(cache_key)
+    if cached and time.time() - cached[0] <= PRICE_CACHE_TTL_SECONDS:
+        return cached[1]
+
+    def fetch():
+        return yf.Ticker(symbol).history(period=period, timeout=YFINANCE_TIMEOUT_SECONDS)
+
+    history = _run_with_timeout(fetch)
+    _history_cache[cache_key] = (time.time(), history)
+    return history
 
 def get_conn() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
@@ -32,22 +69,29 @@ def get_live_price(symbol: str) -> float:
     ticker_symbol = symbol.upper().strip()
     if not ticker_symbol.endswith(".NS") and "^" not in ticker_symbol:
         ticker_symbol = f"{ticker_symbol}.NS"
-    
-    ticker = yf.Ticker(ticker_symbol)
+
+    cached_price = _get_cached_price(ticker_symbol)
+    if cached_price is not None:
+        return cached_price
+
     try:
         # Fetch last 1 day of data
-        hist = ticker.history(period="1d")
+        hist = _get_history(ticker_symbol, "1d")
         if not hist.empty:
-            return float(hist["Close"].iloc[-1])
+            price = float(hist["Close"].iloc[-1])
+            _set_cached_price(ticker_symbol, price)
+            return price
     except Exception as e:
         logger.warning(f"Fast price history fetch failed for {ticker_symbol}: {e}")
 
     # Fallback to info block
     try:
-        info = ticker.info
+        info = _run_with_timeout(lambda: yf.Ticker(ticker_symbol).info, timeout_seconds=YFINANCE_TIMEOUT_SECONDS)
         price = info.get("regularMarketPrice") or info.get("currentPrice") or info.get("previousClose")
         if price:
-            return float(price)
+            price_float = float(price)
+            _set_cached_price(ticker_symbol, price_float)
+            return price_float
     except Exception as e:
         logger.error(f"yfinance info price fetch failed for {ticker_symbol}: {e}")
         
@@ -148,9 +192,7 @@ def process_pending_orders(portfolio_id: int, conn: sqlite3.Connection):
         
         try:
             # Fetch opening price of current day
-            import yfinance as yf
-            ticker = yf.Ticker(symbol)
-            hist = ticker.history(period="1d")
+            hist = _get_history(symbol, "1d")
             if hist.empty:
                 logger.warning(f"No history found for {symbol} when processing pending order.")
                 continue
@@ -564,8 +606,7 @@ def get_holdings_list(user_id: str) -> List[Dict[str, Any]]:
             
             # Fetch daily price change percent (for green/red indicator)
             try:
-                ticker = yf.Ticker(symbol)
-                hist = ticker.history(period="2d")
+                hist = _get_history(symbol, "2d")
                 if len(hist) > 1:
                     prev_close = hist["Close"].iloc[-2]
                     change_pct = ((current_price - prev_close) / prev_close) * 100

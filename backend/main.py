@@ -1,6 +1,7 @@
 import logging
 import os
 import jwt as pyjwt
+import time
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Header, Depends, Request, Cookie, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
@@ -32,6 +33,24 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Portfolio Analyser API", version="2.0.0")
+_market_summary_cache: Dict[str, Any] = {"timestamp": 0.0, "data": []}
+MARKET_SUMMARY_CACHE_TTL_SECONDS = 120
+SLOW_REQUEST_THRESHOLD_SECONDS = 2.0
+
+@app.middleware("http")
+async def log_slow_requests(request: Request, call_next):
+    start = time.perf_counter()
+    response = await call_next(request)
+    elapsed = time.perf_counter() - start
+    if elapsed >= SLOW_REQUEST_THRESHOLD_SECONDS:
+        logger.warning(
+            "Slow request %.2fs %s %s -> %s",
+            elapsed,
+            request.method,
+            request.url.path,
+            response.status_code,
+        )
+    return response
 
 async def schedule_daily_snapshot_job():
     """Background task running every 4 hours to check if we need to take a snapshot."""
@@ -47,6 +66,11 @@ async def startup_event():
     init_db()
     logger.info("Database initialised")
     asyncio.create_task(schedule_daily_snapshot_job())
+
+@app.get("/api/health")
+async def health_check():
+    """Cheap health check for Railway and uptime monitoring."""
+    return {"status": "ok"}
 
 # Setup CORS
 _ALLOWED_ORIGINS = [
@@ -588,7 +612,7 @@ async def analyze_stock_details(
         ticker = uvicorn.config.Config  # mock ref to yfinance
         import yfinance as yf
         ticker = yf.Ticker(ticker_symbol)
-        history = ticker.history(period="1y")
+        history = ticker.history(period="1y", timeout=8)
         
         chart_data = []
         if not history.empty:
@@ -630,6 +654,10 @@ async def analyze_stock_details(
 @app.get("/api/market-summary")
 async def get_market_summary(authenticated: bool = Depends(get_current_user)):
     """Fetches key indices (Nifty 50, Nifty Bank, Nifty Midcap) to display market benchmarks."""
+    now = time.time()
+    if now - _market_summary_cache["timestamp"] <= MARKET_SUMMARY_CACHE_TTL_SECONDS:
+        return _market_summary_cache["data"]
+
     import yfinance as yf
     indices = {
         "NIFTY 50": "^NSEI",
@@ -641,7 +669,7 @@ async def get_market_summary(authenticated: bool = Depends(get_current_user)):
     for name, sym in indices.items():
         try:
             ticker = yf.Ticker(sym)
-            history = ticker.history(period="5d")
+            history = ticker.history(period="5d", timeout=6)
             if not history.empty:
                 latest_close = float(history['Close'].iloc[-1])
                 prev_close = float(history['Close'].iloc[-2]) if len(history) > 1 else latest_close
@@ -656,6 +684,10 @@ async def get_market_summary(authenticated: bool = Depends(get_current_user)):
                 })
         except Exception as e:
             logger.warning(f"Failed to fetch market index {name}: {e}")
+
+    if summary:
+        _market_summary_cache["timestamp"] = now
+        _market_summary_cache["data"] = summary
             
     return summary
 

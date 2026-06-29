@@ -140,7 +140,11 @@ function App() {
     if (authRequired && !token) return;
 
     fetchMarketIndices();
-    const interval = setInterval(fetchMarketIndices, 60000); // refresh every minute
+    const interval = setInterval(() => {
+      if (!document.hidden) {
+        fetchMarketIndices();
+      }
+    }, 120000);
     return () => clearInterval(interval);
   }, [authChecking, authRequired, token]);
 

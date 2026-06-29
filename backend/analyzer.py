@@ -1,10 +1,21 @@
 import logging
+import time
+import concurrent.futures
 import numpy as np
 import pandas as pd
 import yfinance as yf
 from typing import Dict, Any, Tuple, Optional
 
 logger = logging.getLogger(__name__)
+
+YFINANCE_TIMEOUT_SECONDS = 8
+ANALYSIS_CACHE_TTL_SECONDS = 300
+_analysis_cache: Dict[Tuple[str, bool, float, float], Tuple[float, Dict[str, Any]]] = {}
+_yf_executor = concurrent.futures.ThreadPoolExecutor(max_workers=6, thread_name_prefix="yf-analyzer")
+
+def _run_with_timeout(fn, timeout_seconds: int = YFINANCE_TIMEOUT_SECONDS):
+    future = _yf_executor.submit(fn)
+    return future.result(timeout=timeout_seconds)
 
 def calculate_rsi(prices: pd.Series, period: int = 14) -> pd.Series:
     """Calculate Relative Strength Index (RSI)."""
@@ -43,21 +54,25 @@ class StockAnalyzer:
     ) -> Dict[str, Any]:
         """Runs complete technical and fundamental analysis on a resolved ticker symbol."""
         logger.info(f"Analyzing {ticker_symbol} (is_etf={is_etf})...")
+
+        cache_key = (ticker_symbol.upper().strip(), bool(is_etf), round(weight_fundamental, 3), round(weight_technical, 3))
+        cached = _analysis_cache.get(cache_key)
+        if cached and time.time() - cached[0] <= ANALYSIS_CACHE_TTL_SECONDS:
+            return dict(cached[1])
         
-        import time
         try:
             ticker = yf.Ticker(ticker_symbol)
             
             # 1. Fetch Ticker Info with robust linear backoff retry
             info = {}
-            for attempt in range(4):
+            for attempt in range(2):
                 try:
-                    info = ticker.info
+                    info = _run_with_timeout(lambda: ticker.info)
                     if info and isinstance(info, dict) and len(info) > 0:
                         break
                 except Exception as e:
-                    if attempt == 3:
-                        logger.error(f"yfinance info fetch failed permanently after 4 attempts for {ticker_symbol}: {e}")
+                    if attempt == 1:
+                        logger.error(f"yfinance info fetch failed permanently after 2 attempts for {ticker_symbol}: {e}")
                         # Fallback basic info so fundamental analysis doesn't completely crash
                         info = {
                             "longName": ticker_symbol,
@@ -67,22 +82,22 @@ class StockAnalyzer:
                             "trailingPE": None
                         }
                     else:
-                        sleep_time = (attempt + 1) * 1.5
+                        sleep_time = 0.75
                         logger.warning(f"yfinance info fetch failed on attempt {attempt+1} for {ticker_symbol}, retrying in {sleep_time}s... Error: {e}")
                         time.sleep(sleep_time)
             
             # 2. Fetch Ticker History with robust linear backoff retry
             history = pd.DataFrame()
-            for attempt in range(4):
+            for attempt in range(2):
                 try:
-                    history = ticker.history(period="1y")
+                    history = _run_with_timeout(lambda: ticker.history(period="1y", timeout=YFINANCE_TIMEOUT_SECONDS))
                     if history is not None and not history.empty:
                         break
                 except Exception as e:
-                    if attempt == 3:
-                        raise ValueError(f"No historical price data returned for {ticker_symbol} after 4 attempts: {e}")
+                    if attempt == 1:
+                        raise ValueError(f"No historical price data returned for {ticker_symbol} after 2 attempts: {e}")
                     else:
-                        sleep_time = (attempt + 1) * 1.5
+                        sleep_time = 0.75
                         logger.warning(f"yfinance history fetch failed on attempt {attempt+1} for {ticker_symbol}, retrying in {sleep_time}s... Error: {e}")
                         time.sleep(sleep_time)
             
@@ -130,6 +145,7 @@ class StockAnalyzer:
                 info
             )
             
+            _analysis_cache[cache_key] = (time.time(), dict(analysis_report))
             return analysis_report
             
         except Exception as e:
