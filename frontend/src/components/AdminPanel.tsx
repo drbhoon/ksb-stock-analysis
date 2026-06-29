@@ -17,6 +17,10 @@ interface ResetRequest {
   season: number;
   status: string;
   requested_at: string;
+  reviewed_at?: string | null;
+  reviewed_by_email?: string | null;
+  reviewed_by_name?: string | null;
+  admin_note?: string | null;
   email?: string;
   name?: string;
   cash?: number;
@@ -55,7 +59,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ API_BASE_URL, token }) =
       const data = await res.json();
       setUsers(data.users || []);
 
-      const resetRes = await fetch(`${API_BASE_URL}/api/admin/game/reset-requests?status=PENDING`, {
+      const resetRes = await fetch(`${API_BASE_URL}/api/admin/game/reset-requests?status=ALL`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -134,6 +138,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ API_BASE_URL, token }) =
 
   // Simple statistics
   const totalUsers = users.length;
+  const pendingResetRequests = resetRequests.filter(req => req.status === 'PENDING');
+  const reviewedResetRequests = resetRequests.filter(req => req.status !== 'PENDING');
   
   const getActiveToday = () => {
     const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
@@ -220,73 +226,125 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ API_BASE_URL, token }) =
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', gap: '12px', flexWrap: 'wrap' }}>
                 <h3 style={{ fontSize: '1.05rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <RotateCcw size={18} style={{ color: 'var(--color-hold)' }} />
-                  Pending Game Reset Requests
+                  Game Reset Requests
                 </h3>
                 <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                  {resetRequests.length} waiting
+                  {pendingResetRequests.length} pending · {reviewedResetRequests.length} reviewed
                 </span>
               </div>
 
-              <div style={{ overflowX: 'auto' }}>
-                <table className="premium-table">
-                  <thead>
-                    <tr>
-                      <th>User</th>
-                      <th>Season</th>
-                      <th>Requested</th>
-                      <th style={{ textAlign: 'right' }}>Trading Cash</th>
-                      <th style={{ textAlign: 'right' }}>Active Loan</th>
-                      <th style={{ textAlign: 'center' }}>Decision</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {resetRequests.map((req) => (
-                      <tr key={req.id}>
-                        <td>
-                          <div style={{ fontWeight: 700, color: 'white', fontSize: '0.88rem' }}>
-                            {req.name || 'Unknown User'}
-                          </div>
-                          <div style={{ color: 'var(--text-muted)', fontSize: '0.74rem', marginTop: '2px' }}>
-                            {req.email || req.user_id}
-                          </div>
-                        </td>
-                        <td style={{ fontWeight: 700 }}>Season {req.season}</td>
-                        <td style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>{formatDate(req.requested_at)}</td>
-                        <td style={{ textAlign: 'right', fontFamily: 'monospace' }}>
-                          ₹{(req.cash || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                        </td>
-                        <td style={{ textAlign: 'right', fontFamily: 'monospace', color: (req.loan_principal || 0) > 0 ? 'var(--color-hold)' : 'var(--text-muted)' }}>
-                          ₹{(req.loan_principal || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                        </td>
-                        <td>
-                          <div style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
-                            <button
-                              onClick={() => reviewResetRequest(req.id, true)}
-                              disabled={reviewingRequestId === req.id}
-                              className="btn-secondary"
-                              style={{ padding: '7px 10px', color: 'var(--color-buy)', border: '1px solid rgba(16,185,129,0.25)' }}
-                              title="Approve reset request"
-                              aria-label="Approve reset request"
-                            >
-                              <Check size={14} />
-                            </button>
-                            <button
-                              onClick={() => reviewResetRequest(req.id, false)}
-                              disabled={reviewingRequestId === req.id}
-                              className="btn-secondary"
-                              style={{ padding: '7px 10px', color: 'var(--color-sell)', border: '1px solid rgba(239,68,68,0.25)' }}
-                              title="Deny reset request"
-                              aria-label="Deny reset request"
-                            >
-                              <X size={14} />
-                            </button>
-                          </div>
-                        </td>
+              {pendingResetRequests.length > 0 && (
+                <div style={{ overflowX: 'auto', marginBottom: '24px' }}>
+                  <table className="premium-table">
+                    <thead>
+                      <tr>
+                        <th>User</th>
+                        <th>Season</th>
+                        <th>Requested</th>
+                        <th style={{ textAlign: 'right' }}>Trading Cash</th>
+                        <th style={{ textAlign: 'right' }}>Active Loan</th>
+                        <th style={{ textAlign: 'center' }}>Decision</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {pendingResetRequests.map((req) => (
+                        <tr key={req.id}>
+                          <td>
+                            <div style={{ fontWeight: 700, color: 'white', fontSize: '0.88rem' }}>
+                              {req.name || 'Unknown User'}
+                            </div>
+                            <div style={{ color: 'var(--text-muted)', fontSize: '0.74rem', marginTop: '2px' }}>
+                              {req.email || req.user_id}
+                            </div>
+                          </td>
+                          <td style={{ fontWeight: 700 }}>Season {req.season}</td>
+                          <td style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>{formatDate(req.requested_at)}</td>
+                          <td style={{ textAlign: 'right', fontFamily: 'monospace' }}>
+                            ₹{(req.cash || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                          </td>
+                          <td style={{ textAlign: 'right', fontFamily: 'monospace', color: (req.loan_principal || 0) > 0 ? 'var(--color-hold)' : 'var(--text-muted)' }}>
+                            ₹{(req.loan_principal || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
+                              <button
+                                onClick={() => reviewResetRequest(req.id, true)}
+                                disabled={reviewingRequestId === req.id}
+                                className="btn-secondary"
+                                style={{ padding: '7px 10px', color: 'var(--color-buy)', border: '1px solid rgba(16,185,129,0.25)' }}
+                                title="Approve reset request"
+                                aria-label="Approve reset request"
+                              >
+                                <Check size={14} />
+                              </button>
+                              <button
+                                onClick={() => reviewResetRequest(req.id, false)}
+                                disabled={reviewingRequestId === req.id}
+                                className="btn-secondary"
+                                style={{ padding: '7px 10px', color: 'var(--color-sell)', border: '1px solid rgba(239,68,68,0.25)' }}
+                                title="Deny reset request"
+                                aria-label="Deny reset request"
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {reviewedResetRequests.length > 0 && (
+                <div style={{ overflowX: 'auto' }}>
+                  <h4 style={{ fontSize: '0.9rem', fontWeight: 800, marginBottom: '12px', color: 'var(--text-muted)' }}>Decision History</h4>
+                  <table className="premium-table">
+                    <thead>
+                      <tr>
+                        <th>User</th>
+                        <th>Season</th>
+                        <th>Requested</th>
+                        <th>Reviewed</th>
+                        <th>Status</th>
+                        <th>Reviewer</th>
+                        <th>Note</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reviewedResetRequests.map((req) => {
+                        const approved = req.status === 'APPROVED';
+                        return (
+                          <tr key={req.id}>
+                            <td>
+                              <div style={{ fontWeight: 700, color: 'white', fontSize: '0.88rem' }}>{req.name || 'Unknown User'}</div>
+                              <div style={{ color: 'var(--text-muted)', fontSize: '0.74rem', marginTop: '2px' }}>{req.email || req.user_id}</div>
+                            </td>
+                            <td style={{ fontWeight: 700 }}>Season {req.season}</td>
+                            <td style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>{formatDate(req.requested_at)}</td>
+                            <td style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>{formatDate(req.reviewed_at || '')}</td>
+                            <td>
+                              <span style={{
+                                color: approved ? 'var(--color-buy)' : 'var(--color-sell)',
+                                background: approved ? 'var(--color-buy-trans)' : 'var(--color-sell-trans)',
+                                border: `1px solid ${approved ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)'}`,
+                                borderRadius: '6px',
+                                padding: '4px 8px',
+                                fontSize: '0.72rem',
+                                fontWeight: 800
+                              }}>
+                                {req.status}
+                              </span>
+                            </td>
+                            <td style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>{req.reviewed_by_name || req.reviewed_by_email || '—'}</td>
+                            <td style={{ color: 'var(--text-muted)', fontSize: '0.82rem', maxWidth: '240px' }}>{req.admin_note || '—'}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
 

@@ -20,6 +20,9 @@ interface PortfolioSummary {
   loan_headroom: number;
   reset_request_pending?: boolean;
   reset_requested_at?: string | null;
+  reset_request_status?: string | null;
+  reset_request_reviewed_at?: string | null;
+  reset_request_admin_note?: string | null;
   is_bust: boolean;
 }
 
@@ -400,6 +403,18 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token,
   const totalValue = summary.holdings_value;
   const isLoss = summary.season_pnl < 0;
   const netWorthReturn = summary.loan_principal > 0 ? (summary.season_pnl / summary.loan_principal) * 100 : 0;
+  const latestResetStatus = summary.reset_request_status;
+  const showResetNotice = summary.reset_request_pending || latestResetStatus === 'DENIED' || latestResetStatus === 'APPROVED';
+  const resetNoticeColor = summary.reset_request_pending
+    ? 'var(--color-hold)'
+    : latestResetStatus === 'APPROVED'
+      ? 'var(--color-buy)'
+      : 'var(--color-sell)';
+  const resetNoticeText = summary.reset_request_pending
+    ? 'Your reset request is waiting for admin review.'
+    : latestResetStatus === 'APPROVED'
+      ? 'Your reset request was approved. Your game has been reset for the new season.'
+      : 'Your reset request was denied by the admin.';
 
   return (
     <div style={{ padding: '32px 40px', maxWidth: '1440px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '28px' }}>
@@ -486,6 +501,23 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token,
         <div className="glass-panel" style={{ padding: '16px 20px', borderLeft: '4px solid var(--color-buy)', display: 'flex', alignItems: 'center', gap: '12px' }}>
           <TrendingUp size={20} style={{ color: 'var(--color-buy)' }} />
           <span style={{ fontSize: '0.88rem', color: 'var(--text-muted)' }}>{successMsg}</span>
+        </div>
+      )}
+      {showResetNotice && (
+        <div className="glass-panel" style={{ padding: '16px 20px', borderLeft: `4px solid ${resetNoticeColor}`, display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+          {latestResetStatus === 'APPROVED' ? (
+            <TrendingUp size={20} style={{ color: resetNoticeColor, marginTop: '1px' }} />
+          ) : (
+            <AlertTriangle size={20} style={{ color: resetNoticeColor, marginTop: '1px' }} />
+          )}
+          <div>
+            <div style={{ fontSize: '0.88rem', color: 'white', fontWeight: 700 }}>{resetNoticeText}</div>
+            {summary.reset_request_admin_note && !summary.reset_request_pending && (
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                Admin note: {summary.reset_request_admin_note}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

@@ -337,6 +337,13 @@ def get_portfolio_summary(user_id: str) -> Dict[str, Any]:
             ORDER BY requested_at DESC
             LIMIT 1
         """, (user_id,)).fetchone()
+        latest_reset = conn.execute("""
+            SELECT id, status, requested_at, reviewed_at, admin_note
+            FROM game_reset_requests
+            WHERE user_id = ?
+            ORDER BY requested_at DESC
+            LIMIT 1
+        """, (user_id,)).fetchone()
         
         return {
             "id": portfolio_id,
@@ -354,6 +361,9 @@ def get_portfolio_summary(user_id: str) -> Dict[str, Any]:
             "reset_request_pending": bool(pending_reset),
             "reset_request_id": pending_reset["id"] if pending_reset else None,
             "reset_requested_at": pending_reset["requested_at"] if pending_reset else None,
+            "reset_request_status": latest_reset["status"] if latest_reset else None,
+            "reset_request_reviewed_at": latest_reset["reviewed_at"] if latest_reset else None,
+            "reset_request_admin_note": latest_reset["admin_note"] if latest_reset else None,
             "is_bust": (net_worth < BUST_THRESHOLD) or (net_worth == BUST_THRESHOLD and (loan > 0.0 or holdings_value > 0.0))
         }
 
@@ -408,11 +418,14 @@ def list_reset_requests(status: str = "PENDING") -> List[Dict[str, Any]]:
             u.email,
             u.name,
             u.picture,
+            reviewer.email AS reviewed_by_email,
+            reviewer.name AS reviewed_by_name,
             gp.cash,
             gp.loan_principal,
             gp.accrued_interest
         FROM game_reset_requests grr
         LEFT JOIN users u ON u.id = grr.user_id
+        LEFT JOIN users reviewer ON reviewer.id = grr.reviewed_by
         LEFT JOIN game_portfolios gp ON gp.id = grr.portfolio_id
     """
     params: Tuple[Any, ...] = ()
