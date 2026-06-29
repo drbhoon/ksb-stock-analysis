@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Dashboard } from './components/Dashboard';
 import { StockDetail } from './components/StockDetail';
 import { SingleStockAnalysis } from './components/SingleStockAnalysis';
@@ -35,6 +35,7 @@ function App() {
   const [currentTab, setCurrentTab] = useState<AppTab>(getInitialTab);
   const [userProfile, setUserProfile] = useState<{email: string; name: string; picture?: string} | null>(null);
   const [oauthError, setOauthError] = useState<string | null>(null);
+  const navTabsRef = useRef<HTMLDivElement | null>(null);
 
   // Hydrate portfolio from localStorage on mount
   const [portfolioData, setPortfolioData] = useState<any>(() => {
@@ -145,7 +146,14 @@ function App() {
 
   useEffect(() => {
     try { localStorage.setItem('ksb_active_tab', currentTab); } catch {}
-  }, [currentTab]);
+    window.setTimeout(() => {
+      const nav = navTabsRef.current;
+      const activeTab = nav?.querySelector<HTMLButtonElement>('[data-active-tab="true"]');
+      if (nav && activeTab) {
+        nav.scrollLeft = activeTab.offsetLeft - (nav.clientWidth - activeTab.clientWidth) / 2;
+      }
+    }, 0);
+  }, [currentTab, authChecking, userProfile]);
 
   const fetchMarketIndices = async () => {
     try {
@@ -519,17 +527,17 @@ function App() {
         top: 0,
         zIndex: 50
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{ background: 'linear-gradient(135deg, var(--color-primary), var(--color-accent))', padding: '10px', borderRadius: '10px', display: 'flex', color: '#fff' }}>
+        <div className="app-brand" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div className="app-brand-icon" style={{ background: 'linear-gradient(135deg, var(--color-primary), var(--color-accent))', padding: '10px', borderRadius: '10px', display: 'flex', color: '#fff' }}>
             <TrendingUp size={20} />
           </div>
-          <span style={{ fontSize: '1.25rem', fontWeight: 800, fontFamily: 'var(--font-heading)', letterSpacing: '-0.02em' }}>
+          <span className="app-brand-title" style={{ fontSize: '1.25rem', fontWeight: 800, fontFamily: 'var(--font-heading)', letterSpacing: '-0.02em' }}>
             PORTFOLIO <span style={{ color: 'var(--color-primary)' }}>ANALYSER</span>
           </span>
         </div>
 
         {/* Tab switch Navigation pills */}
-        <div className="nav-tabs-container">
+        <div className="nav-tabs-container" ref={navTabsRef}>
           {tabs.map(tab => {
             const labels: Record<string, string> = {
               PORTFOLIO: 'Portfolio',
@@ -543,6 +551,7 @@ function App() {
             return (
               <button
                 key={tab}
+                data-active-tab={currentTab === tab ? 'true' : undefined}
                 onClick={() => setCurrentTab(tab)}
                 style={{
                   background: currentTab === tab ? 'var(--color-primary)' : 'transparent',
@@ -566,7 +575,7 @@ function App() {
 
         <div className="app-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
           {userProfile && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(255,255,255,0.03)', padding: '6px 12px', borderRadius: '20px', border: '1px solid var(--border-glass)' }}>
+            <div className="user-profile-pill" style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(255,255,255,0.03)', padding: '6px 12px', borderRadius: '20px', border: '1px solid var(--border-glass)' }}>
               {userProfile.picture ? (
                 <img 
                   src={userProfile.picture} 

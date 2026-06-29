@@ -3,7 +3,6 @@ import {
   TrendingUp, TrendingDown, RefreshCw, BarChart2, 
   Search, DollarSign, ArrowRightLeft, History, AlertTriangle 
 } from 'lucide-react';
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts';
 
 interface PortfolioSummary {
   id: number;
@@ -20,6 +19,7 @@ interface PortfolioSummary {
   loan_headroom: number;
   reset_request_pending?: boolean;
   reset_requested_at?: string | null;
+  reset_request_latest_id?: number | null;
   reset_request_status?: string | null;
   reset_request_reviewed_at?: string | null;
   reset_request_admin_note?: string | null;
@@ -49,15 +49,6 @@ interface Transaction {
   timestamp: string;
 }
 
-interface Snapshot {
-  date: string;
-  net_worth: number;
-  cash: number;
-  holdings_value: number;
-  loan_principal: number;
-  accrued_interest: number;
-}
-
 interface SearchResult {
   symbol: string;
   name: string;
@@ -71,12 +62,11 @@ interface PaperTradingProps {
   isAdmin: boolean;
 }
 
-export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token, isAdmin }) => {
+export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token }) => {
   // State
   const [summary, setSummary] = useState<PortfolioSummary | null>(null);
   const [holdings, setHoldings] = useState<Holding[]>([]);
   const [history, setHistory] = useState<Transaction[]>([]);
-  const [equityCurve, setEquityCurve] = useState<Snapshot[]>([]);
   
   // Loading & error states
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -101,6 +91,13 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token,
   const [loanAmount, setLoanAmount] = useState<number | ''>('');
   const [executingLoan, setExecutingLoan] = useState<boolean>(false);
   const [requestingReset, setRequestingReset] = useState<boolean>(false);
+  const [dismissedResetNoticeId, setDismissedResetNoticeId] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem('ksb_seen_reset_notice_id');
+    } catch {
+      return null;
+    }
+  });
 
   // Market hours status helper
   const [marketOpen, setMarketOpen] = useState<boolean>(false);
@@ -166,12 +163,6 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token,
         setHistory(histData);
       }
 
-      // Fetch equity curve
-      const curveRes = await fetch(`${API_BASE_URL}/api/game/equity-curve`, { headers: authHeaders() });
-      if (curveRes.ok) {
-        const curveData = await curveRes.json();
-        setEquityCurve(curveData);
-      }
     } catch (err: any) {
       setActionError(err.message || 'Error fetching trading data.');
     } finally {
@@ -317,35 +308,6 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token,
     }
   };
 
-  // Reset Game Season
-  const handleResetGame = async () => {
-    if (!window.confirm("Are you sure you want to restart your portfolio? Your current holdings will be liquidated, loan settled, and a new season will start with ₹0 cash and ₹0 loan. Your prior P&L history will be saved to your Lifetime P&L.")) {
-      return;
-    }
-
-    setIsRefreshing(true);
-    setActionError(null);
-    setSuccessMsg(null);
-
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/game/portfolio/restart`, {
-        method: 'POST',
-        headers: authHeaders()
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.detail || 'Restart failed.');
-      }
-
-      setSuccessMsg('Portfolio reset successfully. Welcome to Season ' + data.season + '!');
-      await fetchGameData();
-    } catch (err: any) {
-      setActionError(err.message);
-      setIsRefreshing(false);
-    }
-  };
-
   // Reset Game Request
   const handleRequestResetGame = async () => {
     if (!window.confirm("Send a reset request to the admin? Your game will only reset if the admin approves it.")) {
@@ -376,6 +338,15 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token,
     }
   };
 
+  const dismissResetNotice = () => {
+    const noticeId = String(summary?.reset_request_latest_id || summary?.reset_requested_at || '');
+    if (!noticeId) return;
+    try {
+      localStorage.setItem('ksb_seen_reset_notice_id', noticeId);
+    } catch {}
+    setDismissedResetNoticeId(noticeId);
+  };
+
   // Quick action: set trade ticker from holdings list
   const selectHoldingForTrade = (symbol: string, compName: string) => {
     handleSelectStock({
@@ -400,36 +371,40 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token,
 
   // Calculation helpers
   const dailyInterest = summary.loan_principal * (0.01 / 30.0);
-  const totalValue = summary.holdings_value;
   const isLoss = summary.season_pnl < 0;
   const netWorthReturn = summary.loan_principal > 0 ? (summary.season_pnl / summary.loan_principal) * 100 : 0;
   const latestResetStatus = summary.reset_request_status;
-  const showResetNotice = summary.reset_request_pending || latestResetStatus === 'DENIED' || latestResetStatus === 'APPROVED';
-  const resetNoticeColor = summary.reset_request_pending
-    ? 'var(--color-hold)'
-    : latestResetStatus === 'APPROVED'
-      ? 'var(--color-buy)'
-      : 'var(--color-sell)';
+  const resetNoticeId = String(summary.reset_request_latest_id || summary.reset_requested_at || '');
+  const resetDecisionSeen = Boolean(resetNoticeId && dismissedResetNoticeId === resetNoticeId);
+  const showResetNotice = Boolean(
+    summary.reset_request_pending ||
+    ((latestResetStatus === 'DENIED' || latestResetStatus === 'APPROVED') && !resetDecisionSeen)
+  );
   const resetNoticeText = summary.reset_request_pending
     ? 'Your reset request is waiting for admin review.'
     : latestResetStatus === 'APPROVED'
       ? 'Your reset request was approved. Your game has been reset for the new season.'
       : 'Your reset request was denied by the admin.';
+  const resetNoticeClass = summary.reset_request_pending
+    ? 'paper-reset-pending'
+    : latestResetStatus === 'APPROVED'
+      ? 'paper-reset-approved'
+      : 'paper-reset-denied';
 
   return (
-    <div className="paper-trading-shell" style={{ padding: '32px 40px', maxWidth: '1440px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '28px' }}>
+    <div className="paper-trading-shell paper-game-skin" style={{ padding: '32px 40px', maxWidth: '1440px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '28px' }}>
       
       {/* 1. Header Banner & Status */}
       <div className="paper-trading-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
         <div className="paper-trading-title-block">
-          <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-primary)', fontWeight: 700 }}>
+          <span className="paper-season-pill" style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-primary)', fontWeight: 700 }}>
             BEGINNERS GAME · SEASON {summary.season}
           </span>
           <h1 style={{ fontSize: '1.8rem', fontWeight: 800, fontFamily: 'var(--font-heading)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '10px' }}>
             Virtual Paper Trading
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginTop: '4px' }}>
-            Buy and sell Indian equities at live prices. Leverage with simulated interest-bearing loans.
+            Start with ₹0 net worth, borrow from the bank, and learn how each decision changes your portfolio.
           </p>
         </div>
 
@@ -478,15 +453,6 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token,
             <RefreshCw size={14} className={isRefreshing ? 'spin' : ''} />
           </button>
           
-          {isAdmin && (
-            <button
-              onClick={handleResetGame}
-              className="btn-secondary"
-              style={{ padding: '9px 16px', borderRadius: '10px', color: 'var(--color-sell)', border: '1px solid rgba(239, 68, 68, 0.2)' }}
-            >
-              Reset Game
-            </button>
-          )}
         </div>
       </div>
 
@@ -504,13 +470,13 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token,
         </div>
       )}
       {showResetNotice && (
-        <div className="glass-panel" style={{ padding: '16px 20px', borderLeft: `4px solid ${resetNoticeColor}`, display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+        <div className={`glass-panel paper-reset-notice ${resetNoticeClass}`} style={{ padding: '16px 20px', display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
           {latestResetStatus === 'APPROVED' ? (
-            <TrendingUp size={20} style={{ color: resetNoticeColor, marginTop: '1px' }} />
+            <TrendingUp size={20} style={{ marginTop: '1px', flexShrink: 0 }} />
           ) : (
-            <AlertTriangle size={20} style={{ color: resetNoticeColor, marginTop: '1px' }} />
+            <AlertTriangle size={20} style={{ marginTop: '1px', flexShrink: 0 }} />
           )}
-          <div>
+          <div style={{ flex: 1 }}>
             <div style={{ fontSize: '0.88rem', color: 'white', fontWeight: 700 }}>{resetNoticeText}</div>
             {summary.reset_request_admin_note && !summary.reset_request_pending && (
               <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px' }}>
@@ -518,6 +484,16 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token,
               </div>
             )}
           </div>
+          {!summary.reset_request_pending && (
+            <button
+              type="button"
+              onClick={dismissResetNotice}
+              className="paper-dismiss-notice"
+              aria-label="Dismiss reset request message"
+            >
+              Got it
+            </button>
+          )}
         </div>
       )}
 
@@ -545,14 +521,14 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token,
           </div>
         </div>
 
-        {/* Invested Value */}
+        {/* Trading Cash */}
         <div className="glass-panel paper-stat-card" style={{ padding: '24px' }}>
-          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.04em' }}>INVESTED VALUE</div>
+          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.04em' }}>TRADING CASH</div>
           <h2 style={{ fontSize: '1.6rem', fontWeight: 800, marginTop: '8px', color: 'white' }}>
-            ₹{totalValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            ₹{summary.cash.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </h2>
           <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '6px', display: 'block' }}>
-            Market valuation of active stocks
+            Borrowed cash not yet invested
           </span>
         </div>
 
@@ -563,10 +539,7 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token,
             ₹{summary.loan_headroom.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </h2>
           <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '6px', display: 'block' }}>
-            Bank credit still available
-          </span>
-          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
-            Trading cash: ₹{summary.cash.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+            Remaining bank limit from ₹1,00,000
           </span>
         </div>
 
@@ -581,23 +554,15 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token,
           </span>
         </div>
 
-        {/* Accrued Interest & Lifetime P&L */}
+        {/* Season P&L */}
         <div className="glass-panel paper-stat-card" style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>ACCRUED INTEREST</span>
-            <span style={{ fontSize: '0.72rem', color: 'var(--color-sell)', fontWeight: 700 }}>₹{summary.accrued_interest.toFixed(2)}</span>
-          </div>
-          <hr style={{ border: 'none', borderTop: '1px solid rgba(255,255,255,0.06)', margin: '10px 0' }} />
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>LIFETIME P&L</span>
-            <span style={{ 
-              fontSize: '0.85rem', 
-              fontWeight: 800, 
-              color: summary.lifetime_pnl >= 0 ? 'var(--color-buy)' : 'var(--color-sell)' 
-            }}>
-              ₹{summary.lifetime_pnl.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-            </span>
-          </div>
+          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.04em' }}>SEASON P&L</div>
+          <h2 style={{ fontSize: '1.6rem', fontWeight: 800, marginTop: '8px', color: summary.season_pnl >= 0 ? 'var(--color-buy)' : 'var(--color-sell)' }}>
+            {summary.season_pnl >= 0 ? '+' : ''}₹{summary.season_pnl.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+          </h2>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '6px', display: 'block' }}>
+            After ₹{summary.accrued_interest.toFixed(2)} interest and fees
+          </span>
         </div>
 
       </div>
@@ -622,55 +587,30 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token,
                 <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginTop: '6px' }}>Use the Trade Panel below to purchase shares.</span>
               </div>
             ) : (
-              <div className="paper-table-scroll" style={{ overflowX: 'auto' }}>
-                <table className="premium-table">
-                  <thead>
-                    <tr>
-                      <th>Ticker</th>
-                      <th style={{ textAlign: 'right' }}>Qty</th>
-                      <th style={{ textAlign: 'right' }}>Avg Price</th>
-                      <th style={{ textAlign: 'right' }}>Live Price</th>
-                      <th style={{ textAlign: 'right' }}>Current Value</th>
-                      <th style={{ textAlign: 'right' }}>P&L (%)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {holdings.map((h) => {
-                      const isHoldingLoss = h.unrealized_pnl_value < 0;
-                      return (
-                        <tr key={h.symbol}>
-                          <td>
-                            <button 
-                              onClick={() => selectHoldingForTrade(h.symbol, h.company_name)}
-                              style={{ 
-                                background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left',
-                                color: 'white', fontWeight: 700, fontSize: '0.85rem', padding: 0
-                              }}
-                              title="Trade Ticker"
-                            >
-                              {h.symbol.replace('.NS', '')}
-                              <span style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-dim)', fontWeight: 400, marginTop: '2px', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {h.company_name}
-                              </span>
-                            </button>
-                          </td>
-                          <td style={{ textAlign: 'right', fontWeight: 600 }}>{h.quantity}</td>
-                          <td style={{ textAlign: 'right', fontFamily: 'monospace' }}>₹{h.average_buy_price.toFixed(2)}</td>
-                          <td style={{ textAlign: 'right', fontFamily: 'monospace', color: h.change_percent >= 0 ? 'var(--color-buy)' : 'var(--color-sell)' }}>
-                            ₹{h.current_price.toFixed(2)}
-                          </td>
-                          <td style={{ textAlign: 'right', fontWeight: 600 }}>₹{h.market_value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
-                          <td style={{ textAlign: 'right', fontWeight: 700, color: isHoldingLoss ? 'var(--color-sell)' : 'var(--color-buy)' }}>
-                            {isHoldingLoss ? '' : '+'}{h.unrealized_pnl_value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                            <span style={{ display: 'block', fontSize: '0.72rem', fontWeight: 500 }}>
-                              ({h.unrealized_pnl_percent.toFixed(2)}%)
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+              <div className="paper-holdings-list">
+                {holdings.map((h) => {
+                  const isHoldingLoss = h.unrealized_pnl_value < 0;
+                  const shortSymbol = h.symbol.replace('.NS', '');
+                  const moveWidth = `${Math.min(100, Math.max(12, Math.abs(h.unrealized_pnl_percent) * 8))}%`;
+                  return (
+                    <button
+                      key={h.symbol}
+                      type="button"
+                      className="paper-holding-card"
+                      onClick={() => selectHoldingForTrade(h.symbol, h.company_name)}
+                    >
+                      <span className="paper-holding-avatar">{shortSymbol.slice(0, 3)}</span>
+                      <span className="paper-holding-main">
+                        <span className="paper-holding-title">{shortSymbol} · {h.quantity} shares</span>
+                        <span className="paper-holding-meta">Avg ₹{h.average_buy_price.toFixed(0)} → Live ₹{h.current_price.toFixed(0)}</span>
+                      </span>
+                      <span className={`paper-holding-pnl ${isHoldingLoss ? 'loss' : 'gain'}`}>
+                        {isHoldingLoss ? '' : '+'}₹{h.unrealized_pnl_value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                        <span className="paper-holding-bar"><span style={{ width: moveWidth }} /></span>
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -842,19 +782,14 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token,
           <div className="glass-panel paper-panel" style={{ padding: '24px' }}>
             <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <DollarSign size={18} style={{ color: 'var(--color-primary)' }} />
-              Simulated Leverage Loan
+              Bank Loan
             </h3>
 
             {/* Accrual alert notice */}
-            {summary.loan_principal > 0 && (
-              <div style={{ 
-                background: 'rgba(245, 158, 11, 0.03)', border: '1px solid rgba(245, 158, 11, 0.15)',
-                borderRadius: '8px', padding: '10px 14px', fontSize: '0.78rem', color: 'var(--color-hold)',
-                marginBottom: '18px', fontStyle: 'italic'
-              }}>
-                ⚡ Accruing loan interest: ₹{dailyInterest.toFixed(2)} / calendar-day (1% per month).
-              </div>
-            )}
+            <div className="paper-loan-callout">
+              <strong>Interest today: ₹{dailyInterest.toFixed(2)}</strong>
+              <span>1% per month on what you borrow.</span>
+            </div>
 
             <form onSubmit={handleLoanSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               
@@ -921,7 +856,7 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token,
           <div className="glass-panel paper-panel" style={{ padding: '24px' }}>
             <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <History size={18} style={{ color: 'var(--color-primary)' }} />
-              Virtual Ledger
+              Recent Ledger
             </h3>
 
             {history.length === 0 ? (
@@ -967,45 +902,6 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token,
         </div>
 
       </div>
-
-      {/* 4. Bottom Equity Curve chart */}
-      {equityCurve.length > 0 && (
-        <div className="glass-panel paper-panel paper-chart-panel" style={{ padding: '24px' }}>
-          <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <TrendingUp size={18} style={{ color: 'var(--color-primary)' }} />
-            Season Equity Curve (Net Worth Trajectory)
-          </h3>
-          
-          <div style={{ width: '100%', height: '260px', background: 'rgba(0,0,0,0.1)', borderRadius: '12px', padding: '10px 0' }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={equityCurve} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorNetWorth" cx="0" cy="0" r="1">
-                    <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.25}/>
-                    <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0.0}/>
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="date" tickLine={false} axisLine={false} tick={{ fill: 'var(--text-dim)', fontSize: 10 }} />
-                <YAxis domain={['auto', 'auto']} tickLine={false} axisLine={false} tick={{ fill: 'var(--text-dim)', fontSize: 10 }} />
-                <Tooltip 
-                  contentStyle={{ background: '#0e1428', border: '1px solid var(--border-glass)', borderRadius: '8px', color: '#fff', fontSize: '0.8rem' }}
-                  labelStyle={{ fontWeight: 600 }}
-                  formatter={(val: any) => [`₹${parseFloat(val).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, 'Net Worth']}
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="net_worth" 
-                  stroke="var(--color-primary)" 
-                  strokeWidth={2.5} 
-                  fillOpacity={1} 
-                  fill="url(#colorNetWorth)" 
-                  name="Net Worth" 
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      )}
 
     </div>
   );

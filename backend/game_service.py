@@ -361,6 +361,7 @@ def get_portfolio_summary(user_id: str) -> Dict[str, Any]:
             "reset_request_pending": bool(pending_reset),
             "reset_request_id": pending_reset["id"] if pending_reset else None,
             "reset_requested_at": pending_reset["requested_at"] if pending_reset else None,
+            "reset_request_latest_id": latest_reset["id"] if latest_reset else None,
             "reset_request_status": latest_reset["status"] if latest_reset else None,
             "reset_request_reviewed_at": latest_reset["reviewed_at"] if latest_reset else None,
             "reset_request_admin_note": latest_reset["admin_note"] if latest_reset else None,
