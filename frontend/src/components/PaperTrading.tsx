@@ -388,7 +388,7 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token,
 
   if (isLoading) {
     return (
-      <div className="glass-panel" style={{ padding: '60px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', margin: '40px auto', maxWidth: '600px' }}>
+      <div className="glass-panel paper-loading-panel" style={{ padding: '60px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', margin: '40px auto', maxWidth: '600px' }}>
         <div className="glow-active" style={{ width: '50px', height: '50px', borderRadius: '50%', border: '4px solid rgba(59, 130, 246, 0.1)', borderTopColor: 'var(--color-primary)', animation: 'spin 1.2s linear infinite', marginBottom: '20px' }} />
         <h3>Loading Paper Trading Simulator...</h3>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '6px' }}>Fetching virtual ledger and holdings prices...</p>
@@ -417,11 +417,11 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token,
       : 'Your reset request was denied by the admin.';
 
   return (
-    <div style={{ padding: '32px 40px', maxWidth: '1440px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '28px' }}>
+    <div className="paper-trading-shell" style={{ padding: '32px 40px', maxWidth: '1440px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '28px' }}>
       
       {/* 1. Header Banner & Status */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
-        <div>
+      <div className="paper-trading-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+        <div className="paper-trading-title-block">
           <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-primary)', fontWeight: 700 }}>
             BEGINNERS GAME · SEASON {summary.season}
           </span>
@@ -433,10 +433,10 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token,
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div className="paper-header-actions" style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <div className="paper-status-actions" style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
             {/* Market Status Banner */}
-            <div className="glass-panel" style={{
+            <div className="glass-panel paper-market-pill" style={{
               padding: '8px 16px',
               borderRadius: '20px',
               fontSize: '0.82rem',
@@ -522,10 +522,10 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token,
       )}
 
       {/* 2. Hero Dashboard Statistics */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
+      <div className="paper-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
         
         {/* Net Worth (Headline) */}
-        <div className="glass-panel glow-active" style={{ padding: '24px', borderLeft: `4px solid ${isLoss ? 'var(--color-sell)' : 'var(--color-buy)'}` }}>
+        <div className="glass-panel glow-active paper-stat-card paper-stat-primary" style={{ padding: '24px', borderLeft: `4px solid ${isLoss ? 'var(--color-sell)' : 'var(--color-buy)'}` }}>
           <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.04em' }}>PORTFOLIO NET WORTH</div>
           <h2 style={{ fontSize: '2rem', fontWeight: 900, marginTop: '8px', color: 'white' }}>
             ₹{summary.net_worth.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -546,7 +546,7 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token,
         </div>
 
         {/* Invested Value */}
-        <div className="glass-panel" style={{ padding: '24px' }}>
+        <div className="glass-panel paper-stat-card" style={{ padding: '24px' }}>
           <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.04em' }}>INVESTED VALUE</div>
           <h2 style={{ fontSize: '1.6rem', fontWeight: 800, marginTop: '8px', color: 'white' }}>
             ₹{totalValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -557,7 +557,7 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token,
         </div>
 
         {/* Available to Borrow */}
-        <div className="glass-panel" style={{ padding: '24px' }}>
+        <div className="glass-panel paper-stat-card" style={{ padding: '24px' }}>
           <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.04em' }}>AVAILABLE TO BORROW</div>
           <h2 style={{ fontSize: '1.6rem', fontWeight: 800, marginTop: '8px', color: 'white' }}>
             ₹{summary.loan_headroom.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -571,7 +571,7 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token,
         </div>
 
         {/* Active Loan Principal */}
-        <div className="glass-panel" style={{ padding: '24px' }}>
+        <div className="glass-panel paper-stat-card" style={{ padding: '24px' }}>
           <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.04em' }}>ACTIVE LOAN</div>
           <h2 style={{ fontSize: '1.6rem', fontWeight: 800, marginTop: '8px', color: summary.loan_principal > 0 ? 'var(--color-hold)' : 'white' }}>
             ₹{summary.loan_principal.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
@@ -582,7 +582,7 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token,
         </div>
 
         {/* Accrued Interest & Lifetime P&L */}
-        <div className="glass-panel" style={{ padding: '24px' }}>
+        <div className="glass-panel paper-stat-card" style={{ padding: '24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>ACCRUED INTEREST</span>
             <span style={{ fontSize: '0.72rem', color: 'var(--color-sell)', fontWeight: 700 }}>₹{summary.accrued_interest.toFixed(2)}</span>
@@ -603,13 +603,13 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token,
       </div>
 
       {/* 3. Core Working Panels Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '28px', alignItems: 'start', flexWrap: 'wrap' }}>
+      <div className="paper-main-grid" style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '28px', alignItems: 'start', flexWrap: 'wrap' }}>
         
         {/* LEFT COLUMN: Holdings & Trading */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
+        <div className="paper-left-column" style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
           
           {/* Holdings Table */}
-          <div className="glass-panel" style={{ padding: '24px' }}>
+          <div className="glass-panel paper-panel" style={{ padding: '24px' }}>
             <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <BarChart2 size={18} style={{ color: 'var(--color-primary)' }} />
               Active Equity Holdings
@@ -622,7 +622,7 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token,
                 <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginTop: '6px' }}>Use the Trade Panel below to purchase shares.</span>
               </div>
             ) : (
-              <div style={{ overflowX: 'auto' }}>
+              <div className="paper-table-scroll" style={{ overflowX: 'auto' }}>
                 <table className="premium-table">
                   <thead>
                     <tr>
@@ -676,13 +676,13 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token,
           </div>
 
           {/* Trade Panel */}
-          <div className="glass-panel" style={{ padding: '24px' }}>
+          <div className="glass-panel paper-panel" style={{ padding: '24px' }}>
             <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <ArrowRightLeft size={18} style={{ color: 'var(--color-primary)' }} />
               Execution Panel
             </h3>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px', alignItems: 'start', flexWrap: 'wrap' }}>
+            <div className="paper-trade-grid" style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px', alignItems: 'start', flexWrap: 'wrap' }}>
               
               {/* Left Column: Symbol Search & Display */}
               <div>
@@ -836,10 +836,10 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token,
         </div>
 
         {/* RIGHT COLUMN: Loans & History Ledger */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
+        <div className="paper-right-column" style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
           
           {/* Loan panel */}
-          <div className="glass-panel" style={{ padding: '24px' }}>
+          <div className="glass-panel paper-panel" style={{ padding: '24px' }}>
             <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <DollarSign size={18} style={{ color: 'var(--color-primary)' }} />
               Simulated Leverage Loan
@@ -918,7 +918,7 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token,
           </div>
 
           {/* Ledger History List */}
-          <div className="glass-panel" style={{ padding: '24px' }}>
+          <div className="glass-panel paper-panel" style={{ padding: '24px' }}>
             <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <History size={18} style={{ color: 'var(--color-primary)' }} />
               Virtual Ledger
@@ -970,7 +970,7 @@ export const PaperTrading: React.FC<PaperTradingProps> = ({ API_BASE_URL, token,
 
       {/* 4. Bottom Equity Curve chart */}
       {equityCurve.length > 0 && (
-        <div className="glass-panel" style={{ padding: '24px' }}>
+        <div className="glass-panel paper-panel paper-chart-panel" style={{ padding: '24px' }}>
           <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <TrendingUp size={18} style={{ color: 'var(--color-primary)' }} />
             Season Equity Curve (Net Worth Trajectory)

@@ -561,6 +561,122 @@ h1, h2, h3, h4, h5 {
     width: 100%;
     justify-content: center;
   }
+
+  .paper-trading-shell {
+    padding: 20px 14px !important;
+    gap: 20px !important;
+  }
+
+  .paper-loading-panel {
+    margin: 24px 14px !important;
+    padding: 36px 18px !important;
+  }
+
+  .paper-trading-header {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 14px !important;
+  }
+
+  .paper-trading-title-block h1 {
+    font-size: 1.55rem !important;
+    line-height: 1.12;
+  }
+
+  .paper-trading-title-block p {
+    max-width: 100%;
+  }
+
+  .paper-header-actions {
+    width: 100%;
+    flex-wrap: wrap;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+
+  .paper-status-actions {
+    flex: 1 1 100%;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 10px !important;
+    align-items: stretch !important;
+  }
+
+  .paper-status-actions > *,
+  .paper-header-actions > button {
+    justify-content: center;
+    min-width: 0;
+  }
+
+  .paper-market-pill {
+    border-radius: 14px !important;
+    padding: 9px 12px !important;
+    font-size: 0.76rem !important;
+  }
+
+  .paper-header-actions > button {
+    flex: 1 1 0;
+  }
+
+  .paper-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+  }
+
+  .paper-stat-card {
+    padding: 16px !important;
+    min-height: 128px;
+  }
+
+  .paper-stat-card h2 {
+    font-size: 1.28rem !important;
+    line-height: 1.1;
+    overflow-wrap: anywhere;
+  }
+
+  .paper-stat-primary {
+    grid-column: 1 / -1;
+  }
+
+  .paper-stat-primary h2 {
+    font-size: 1.85rem !important;
+  }
+
+  .paper-main-grid,
+  .paper-trade-grid {
+    grid-template-columns: 1fr !important;
+    gap: 20px !important;
+  }
+
+  .paper-left-column,
+  .paper-right-column {
+    gap: 20px !important;
+    min-width: 0;
+  }
+
+  .paper-panel {
+    padding: 18px !important;
+    min-width: 0;
+  }
+
+  .paper-panel h3 {
+    font-size: 1rem !important;
+    line-height: 1.2;
+  }
+
+  .paper-table-scroll {
+    margin: 0 -6px;
+    padding: 0 6px 4px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .paper-table-scroll .premium-table {
+    min-width: 680px;
+  }
+
+  .paper-chart-panel > div:last-child {
+    height: 220px !important;
+  }
 }
 
 @media (max-width: 580px) {
@@ -640,6 +756,69 @@ h1, h2, h3, h4, h5 {
     padding: 14px !important;
     align-items: flex-start !important;
   }
+
+  .paper-trading-shell {
+    padding: 16px 12px !important;
+    gap: 16px !important;
+  }
+
+  .paper-status-actions {
+    grid-template-columns: 1fr !important;
+  }
+
+  .paper-header-actions {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .paper-header-actions .paper-status-actions {
+    grid-column: 1 / -1;
+  }
+
+  .paper-header-actions > button {
+    width: 100%;
+  }
+
+  .paper-stats-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .paper-stat-card {
+    min-height: auto;
+    padding: 15px !important;
+  }
+
+  .paper-stat-card h2 {
+    font-size: 1.35rem !important;
+  }
+
+  .paper-stat-primary h2 {
+    font-size: 1.75rem !important;
+  }
+
+  .paper-panel {
+    padding: 16px !important;
+    border-radius: 14px;
+  }
+
+  .paper-trade-grid input,
+  .paper-right-column input {
+    min-height: 44px;
+    font-size: 1rem !important;
+  }
+
+  .paper-trade-grid .btn-primary,
+  .paper-right-column .btn-primary {
+    min-height: 48px;
+  }
+
+  .paper-table-scroll .premium-table {
+    min-width: 620px;
+  }
+
+  .paper-chart-panel > div:last-child {
+    height: 190px !important;
+  }
 }
 
 @media (max-width: 480px) {
@@ -676,6 +855,42 @@ h1, h2, h3, h4, h5 {
   .stock-signal-panel,
   .stock-breakdown-grid {
     padding: 18px !important;
+  }
+
+  .paper-trading-title-block h1 {
+    font-size: 1.42rem !important;
+  }
+
+  .paper-trading-title-block span {
+    font-size: 0.68rem !important;
+  }
+
+  .paper-trading-title-block p {
+    font-size: 0.82rem !important;
+  }
+
+  .paper-header-actions {
+    grid-template-columns: minmax(0, 1fr) 48px;
+  }
+
+  .paper-header-actions > button:last-child {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  .paper-header-actions > button:not(:last-child),
+  .paper-status-actions button {
+    font-size: 0.78rem;
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+
+  .paper-panel h3 {
+    font-size: 0.96rem !important;
+  }
+
+  .paper-table-scroll .premium-table {
+    min-width: 560px;
   }
 }
 
