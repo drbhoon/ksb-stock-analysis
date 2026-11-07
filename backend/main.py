@@ -691,6 +691,7 @@ async def get_market_summary(authenticated: bool = Depends(get_current_user)):
             
     return summary
 
+
 # ── Paper Trading Game Routes ───────────────────────────────────────────────
 
 class TradeRequest(BaseModel):
@@ -842,6 +843,22 @@ async def game_leaderboard(user: Dict = Depends(get_current_user)):
     except Exception as e:
         logger.error(f"Failed to fetch game leaderboard: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# Mount TradingAgent routes in production/same-origin mode if available
+try:
+    import sys as _sys
+    _ta_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "TradingAgent")
+    if os.path.exists(_ta_dir):
+        if _ta_dir not in _sys.path:
+            _sys.path.insert(0, _ta_dir)
+        from agent_server import app as _ta_app
+        for _route in _ta_app.routes:
+            if getattr(_route, "path", "").startswith("/api/trading-agent"):
+                app.routes.append(_route)
+        logger.info("Mounted /api/trading-agent/* routes into main FastAPI app.")
+except Exception as _ta_err:
+    logger.warning(f"TradingAgent routes not mounted in main app (using standalone port 8001 if local): {_ta_err}")
+
 
 # Serve static frontend files in production if dist folder is present
 frontend_dist_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "dist")

@@ -1,9 +1,10 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+﻿import { useState, useEffect, useMemo, useRef } from 'react';
 import { Dashboard } from './components/Dashboard';
 import { StockDetail } from './components/StockDetail';
 import { SingleStockAnalysis } from './components/SingleStockAnalysis';
 import { MutualFundAnalysis } from './components/MutualFundAnalysis';
 import { SmartPlanner } from './components/SmartPlanner';
+import { TradingAgent } from './components/TradingAgent';
 import { LoginPage } from './components/LoginPage';
 import { AdminPanel } from './components/AdminPanel';
 import { LearnGuide } from './components/LearnGuide';
@@ -16,8 +17,8 @@ const API_BASE_URL = isLocalFrontend && window.location.port === '5173'
   ? 'http://localhost:8000'
   : window.location.origin;
 
-type AppTab = 'PORTFOLIO' | 'SINGLE' | 'MF' | 'PLANNER' | 'ADMIN' | 'LEARN' | 'GAME';
-const APP_TABS: AppTab[] = ['PORTFOLIO', 'SINGLE', 'MF', 'PLANNER', 'ADMIN', 'LEARN', 'GAME'];
+type AppTab = 'PORTFOLIO' | 'SINGLE' | 'MF' | 'PLANNER' | 'TRADING_AGENT' | 'ADMIN' | 'LEARN' | 'GAME';
+const APP_TABS: AppTab[] = ['PORTFOLIO', 'SINGLE', 'MF', 'PLANNER', 'TRADING_AGENT', 'ADMIN', 'LEARN', 'GAME'];
 const getInitialTab = (): AppTab => {
   try {
     const savedTab = localStorage.getItem('ksb_active_tab') as AppTab | null;
@@ -32,7 +33,10 @@ function App() {
   const [authRequired, setAuthRequired] = useState<boolean>(false);
   const [adminBypassEnabled, setAdminBypassEnabled] = useState<boolean>(false);
   const [authChecking, setAuthChecking] = useState<boolean>(true);
+
   const [currentTab, setCurrentTab] = useState<AppTab>(getInitialTab);
+
+
   const [userProfile, setUserProfile] = useState<{email: string; name: string; picture?: string} | null>(null);
   const [oauthError, setOauthError] = useState<string | null>(null);
   const navTabsRef = useRef<HTMLDivElement | null>(null);
@@ -118,7 +122,25 @@ function App() {
         const res = await fetch(`${API_BASE_URL}/api/auth/status`);
         if (res.ok) {
           const data = await res.json();
-          setAuthRequired(data.auth_required);
+          const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+          if (isLocal && !data.google_login && !data.admin_bypass) {
+            setAuthRequired(false);
+            if (!currentToken) {
+              try {
+                const taRes = await fetch('http://localhost:8001/api/trading-agent/status');
+                if (taRes.ok) {
+                  const taData = await taRes.json();
+                  if (taData.local_dev_token) {
+                    currentToken = taData.local_dev_token;
+                    setToken(currentToken);
+                    localStorage.setItem('ksb_auth_token', currentToken!);
+                  }
+                }
+              } catch {}
+            }
+          } else {
+            setAuthRequired(data.auth_required);
+          }
           setAdminBypassEnabled(data.admin_bypass);
         }
       } catch (e) {
@@ -517,8 +539,13 @@ function App() {
 
   const isAdmin = userProfile?.email === "admin@ksbhoon.local" || userProfile?.email === "drbhoon@gmail.com";
   const tabs = isAdmin 
-    ? (['PORTFOLIO', 'SINGLE', 'MF', 'PLANNER', 'GAME', 'ADMIN', 'LEARN'] as const)
-    : (['PORTFOLIO', 'SINGLE', 'MF', 'PLANNER', 'GAME', 'LEARN'] as const);
+
+    ? (['PORTFOLIO', 'SINGLE', 'MF', 'PLANNER', 'TRADING_AGENT', 'GAME', 'ADMIN', 'LEARN'] as const)
+    : (['PORTFOLIO', 'SINGLE', 'MF', 'PLANNER', 'TRADING_AGENT', 'GAME', 'LEARN'] as const);
+
+
+
+
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -548,9 +575,13 @@ function App() {
               SINGLE: 'Single Stock',
               MF: 'Mutual Funds',
               PLANNER: 'Smart Planner',
+
               GAME: 'Paper Trading',
               ADMIN: 'Admin Panel',
-              LEARN: 'Beginners Guide'
+              LEARN: 'Beginners Guide',
+
+              TRADING_AGENT: 'Trading Agent',
+
             };
             return (
               <button
@@ -647,7 +678,7 @@ function App() {
                 fontWeight: 700
               }}
             >
-              ×
+              Ã—
             </button>
           </div>
         )}
@@ -688,6 +719,12 @@ function App() {
             onSelectStock={handleSelectStock}
           />
         )}
+        {currentTab === 'TRADING_AGENT' && (
+          <TradingAgent
+            API_BASE_URL={API_BASE_URL}
+            token={token}
+          />
+        )}
         {currentTab === 'ADMIN' && (
           <AdminPanel
             API_BASE_URL={API_BASE_URL}
@@ -720,7 +757,7 @@ function App() {
       </main>
 
       <footer style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-dim)', fontSize: '0.8rem', borderTop: '1px solid rgba(255,255,255,0.02)' }}>
-        © {new Date().getFullYear()} Portfolio Analyser by Dr KS Bhoon. All calculations are mathematical models; not direct financial recommendations.
+        Â© {new Date().getFullYear()} Portfolio Analyser by Dr KS Bhoon. All calculations are mathematical models; not direct financial recommendations.
       </footer>
     </div>
   );

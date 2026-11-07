@@ -20,6 +20,10 @@ dist-ssr/
 *.log
 *.sqlite
 backend/data/
+backend/.cache/mf_schemes.json
+TradingAgent/.venv/
+TradingAgent/.env
+TradingAgent/data/
 
 # OS Metadata
 .DS_Store

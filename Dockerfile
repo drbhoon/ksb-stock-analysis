@@ -35,6 +35,8 @@ RUN pip install --no-cache-dir -r backend/requirements.txt
 
 # Copy backend source code
 COPY backend/ ./backend/
+COPY TradingAgent/ ./TradingAgent/
+RUN pip install --no-cache-dir ./TradingAgent/TradingAgents python-dotenv
 
 # Copy the built React static assets from Stage 1 into backend's expected directory structure
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist

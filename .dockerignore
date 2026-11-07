@@ -34,3 +34,5 @@
 **/*.log
 **/*.sqlite
 **/user_portfolio.xlsx
+TradingAgent/data
+backend/data
