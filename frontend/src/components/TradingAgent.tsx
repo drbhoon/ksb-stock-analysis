@@ -10,9 +10,9 @@ interface Props {
   token: string | null;
 }
 
-const TRADING_AGENT_URL = window.location.origin.includes('localhost:5173')
-  ? 'http://localhost:8001'
-  : window.location.origin;
+
+
+
 
 interface AgentReports {
   market_report?: string;
@@ -173,7 +173,10 @@ function formatInline(str: string): string {
     .replace(/`([^`]+)`/g, '<code style="background:rgba(59,130,246,0.15);color:#93c5fd;padding:1px 5px;border-radius:4px;font-size:0.84em">$1</code>');
 }
 
-export const TradingAgent: React.FC<Props> = () => {
+export const TradingAgent: React.FC<Props> = ({ API_BASE_URL }) => {
+  
+  
+  const TRADING_AGENT_URL = window.location.origin.includes('localhost:5173') ? 'http://localhost:8001' : API_BASE_URL;
   const [serverOnline, setServerOnline] = useState<boolean>(false);
   const [hasApiKey, setHasApiKey] = useState<boolean>(false);
   const [maskedKey, setMaskedKey] = useState<string>('');
