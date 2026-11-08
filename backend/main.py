@@ -860,6 +860,89 @@ except Exception as _ta_err:
     logger.warning(f"TradingAgent routes not mounted in main app (using standalone port 8001 if local): {_ta_err}")
 
 
+@app.get("/.well-known/assetlinks.json")
+async def serve_assetlinks():
+    """Digital Asset Links for Android Trusted Web Activity (TWA) verification."""
+    fingerprints = [
+        "92:29:01:1A:91:C5:36:7A:E0:8E:B6:D5:16:BE:5E:3A:AB:A4:6A:3A:5B:3C:FC:61:27:DF:66:78:D9:1F:2C:52"
+    ]
+    extra_fp = os.getenv("ANDROID_PLAY_SHA256", "").strip()
+    if extra_fp and extra_fp not in fingerprints:
+        fingerprints.append(extra_fp)
+    return [
+        {
+            "relation": ["delegate_permission/common.handle_all_urls"],
+            "target": {
+                "namespace": "android_app",
+                "package_name": "org.bhoon.stocks",
+                "sha256_cert_fingerprints": fingerprints,
+            },
+        }
+    ]
+
+
+@app.get("/privacy")
+async def serve_privacy_policy():
+    """Google Play Store compliant Privacy Policy, Data Deletion & Financial Disclaimer page."""
+    from fastapi.responses import HTMLResponse
+    html = """<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy & Terms — Stock Analyser by Dr KS Bhoon</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #060913; color: #e2e8f0; line-height: 1.65; margin: 0; padding: 32px 18px; }
+    .card { max-width: 820px; margin: 0 auto; background: #0f172a; border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 28px 32px; }
+    h1 { color: #ffffff; font-size: 1.65rem; margin-top: 0; }
+    h2 { color: #60a5fa; font-size: 1.15rem; margin-top: 26px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 6px; }
+    p, li { color: #cbd5e1; font-size: 0.94rem; }
+    .badge { display: inline-block; background: rgba(59,130,246,0.2); color: #93c5fd; padding: 4px 12px; border-radius: 999px; font-size: 0.76rem; font-weight: 700; margin-bottom: 12px; }
+    .disclaimer { background: rgba(245,158,11,0.1); border-left: 4px solid #f59e0b; padding: 14px 18px; border-radius: 8px; margin: 18px 0; }
+    a { color: #60a5fa; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <span class="badge">OFFICIAL POLICY • ORG.BHOON.STOCKS</span>
+    <h1>Privacy Policy, Financial Disclaimer &amp; Data Safety</h1>
+    <p><strong>Effective Date:</strong> November 8, 2026 &nbsp;|&nbsp; <strong>Publisher:</strong> Dr KS Bhoon (<a href="https://bhoon.org/stocks/">https://bhoon.org/stocks/</a>)</p>
+
+    <div class="disclaimer">
+      <strong>Important Financial &amp; Educational Disclaimer:</strong><br/>
+      <strong>KSB Stock Analyser &amp; AI Simulator</strong> is strictly an <strong>educational, mathematical, and analytical research tool and virtual paper-trading simulator</strong>. It does <strong>not</strong> execute real-money brokerage trades, does <strong>not</strong> hold or transfer user funds, does <strong>not</strong> connect to real-money bank accounts, and does <strong>not</strong> constitute SEBI-registered investment advice. All multi-agent AI simulations and virtual paper trades are for educational and informational purposes only.
+    </div>
+
+    <h2>1. Information We Collect</h2>
+    <ul>
+      <li><strong>Account Authentication (Google Sign-In):</strong> When you sign in using Google OAuth, we receive your basic Google profile identifier (name, email address, and profile avatar URL) solely to authenticate your session and associate your saved watchlists and virtual portfolio state with your account.</li>
+      <li><strong>User-Uploaded Portfolio Files:</strong> If you upload a CDSL/NSDL/broker holdings spreadsheet (CSV/XLSX) for mathematical portfolio analysis, the parsed holdings snapshot is stored privately under your user ID so you do not need to re-upload it on every visit.</li>
+      <li><strong>Virtual Paper Trading &amp; AI Simulation Logs:</strong> Virtual paper-trading balances and AI multi-agent simulation reports are stored to display your historical runs.</li>
+    </ul>
+
+    <h2>2. How We Use &amp; Protect Your Data</h2>
+    <ul>
+      <li>All traffic between the mobile/web application and our servers (`bhoon.org`) is encrypted in transit using HTTPS / TLS 1.3.</li>
+      <li>We do <strong>not</strong> sell, rent, or share your personal information or portfolio holdings with any third-party advertisers or data brokers.</li>
+      <li>Stock ticker queries sent to the AI Multi-Agent Stock Simulator are processed via Google Gemini API solely to generate analytical research reports and contain no personally identifiable user data.</li>
+    </ul>
+
+    <h2 id="data-deletion">3. Account &amp; Data Deletion Policy</h2>
+    <p>You have full control over your account and data at all times:</p>
+    <ul>
+      <li><strong>In-App Instant Reset / Deletion:</strong> You can clear your uploaded portfolio or reset your virtual paper trading data directly inside the app dashboard.</li>
+      <li><strong>Full Account &amp; Data Deletion Request:</strong> To permanently delete your Google-linked user record, saved portfolio snapshots, mutual fund watchlists, and virtual trading history from our database, email <a href="mailto:drbhoon@gmail.com?subject=Delete%20My%20KSB%20Stocks%20Account">drbhoon@gmail.com</a> with the subject line <code>Delete My KSB Stocks Account</code> from your registered email address. All associated records are permanently purged within 48 hours.</li>
+    </ul>
+
+    <h2>4. Contact Information</h2>
+    <p>For questions regarding privacy, data safety, or this application, contact:<br/>
+    <strong>Dr KS Bhoon</strong> — <a href="mailto:drbhoon@gmail.com">drbhoon@gmail.com</a> — <a href="https://bhoon.org">https://bhoon.org</a></p>
+  </div>
+</body>
+</html>"""
+    return HTMLResponse(content=html)
+
+
 # Serve static frontend files in production if dist folder is present
 frontend_dist_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "dist")
 if os.path.exists(frontend_dist_dir):
@@ -872,9 +955,13 @@ if os.path.exists(frontend_dist_dir):
     if os.path.exists(assets_dir):
         app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
         
-    # Catch-all route to serve Index.html for SPA routing
+    # Catch-all route to serve static files in dist root (manifest.json, icons, sw.js) or Index.html for SPA routing
     @app.get("/{catchall:path}")
     async def serve_index(catchall: str):
+        if catchall:
+            candidate = os.path.abspath(os.path.join(frontend_dist_dir, catchall))
+            if candidate.startswith(os.path.abspath(frontend_dist_dir)) and os.path.isfile(candidate):
+                return FileResponse(candidate)
         index_path = os.path.join(frontend_dist_dir, "index.html")
         if os.path.exists(index_path):
             return FileResponse(index_path)

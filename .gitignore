@@ -24,6 +24,12 @@ backend/.cache/mf_schemes.json
 TradingAgent/.venv/
 TradingAgent/.env
 TradingAgent/data/
+playstore-release/keystore/
+playstore-release/*.aab
+playstore-release/*.apk
+playstore-release/android-twa/.gradle/
+playstore-release/android-twa/app/build/
+playstore-release/android-twa/build/
 
 # OS Metadata
 .DS_Store

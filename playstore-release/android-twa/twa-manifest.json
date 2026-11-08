@@ -1,0 +1,49 @@
+{
+  "packageId": "org.bhoon.stocks",
+  "host": "bhoon.org",
+  "name": "KSB Stock Analyser",
+  "launcherName": "KSB Stocks",
+  "display": "standalone",
+  "themeColor": "#060913",
+  "themeColorDark": "#060913",
+  "navigationColor": "#060913",
+  "navigationColorDark": "#060913",
+  "navigationDividerColor": "#060913",
+  "navigationDividerColorDark": "#060913",
+  "backgroundColor": "#060913",
+  "enableNotifications": true,
+  "startUrl": "/stocks/",
+  "iconUrl": "https://bhoon.org/stocks/icon-512.png",
+  "maskableIconUrl": "https://bhoon.org/stocks/icon-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "d:\\RDC Drive\\AI\\Cowork\\ksb-stock-analysis\\playstore-release\\keystore\\android.keystore",
+    "alias": "ksbstocks"
+  },
+  "appVersionCode": 1,
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://bhoon.org/stocks/manifest.json",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://bhoon.org/stocks/",
+  "minSdkVersion": 21,
+  "orientation": "portrait",
+  "fingerprints": [
+    {
+      "name": "upload-key",
+      "value": "92:29:01:1A:91:C5:36:7A:E0:8E:B6:D5:16:BE:5E:3A:AB:A4:6A:3A:5B:3C:FC:61:27:DF:66:78:D9:1F:2C:52"
+    }
+  ],
+  "additionalTrustedOrigins": [
+    "https://ksb-stock-analysis-production.up.railway.app"
+  ],
+  "retainedBundles": [],
+  "displayOverride": []
+}

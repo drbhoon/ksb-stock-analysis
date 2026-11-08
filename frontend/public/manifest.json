@@ -1,0 +1,27 @@
+{
+  "id": "/",
+  "name": "KSB Stock Analyser & AI Simulator",
+  "short_name": "KSB Stocks",
+  "description": "Data-driven mathematical analysis of Indian equities, ETFs, mutual funds, and 12-agent AI stock simulator by Dr KS Bhoon.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#060913",
+  "theme_color": "#060913",
+  "categories": ["finance", "education", "productivity"],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
