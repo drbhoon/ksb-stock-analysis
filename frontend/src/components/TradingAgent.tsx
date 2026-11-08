@@ -116,7 +116,7 @@ const STAGE_TILES = [
   },
 ];
 
-function SimpleMarkdown({ text }: { text: string }) {
+function SimpleMarkdown({ text, notDeployed = false }: { text: string; notDeployed?: boolean }) {
   if (!text || !text.trim()) {
     return (
       <div style={{ padding: '10px 4px 16px' }}>
@@ -125,9 +125,9 @@ function SimpleMarkdown({ text }: { text: string }) {
           style={{
             padding: '14px 18px',
             borderRadius: '12px',
-            background: 'rgba(59, 130, 246, 0.1)',
-            border: '1px solid rgba(59, 130, 246, 0.3)',
-            color: '#93c5fd',
+            background: notDeployed ? 'rgba(245, 158, 11, 0.1)' : 'rgba(59, 130, 246, 0.1)',
+            border: notDeployed ? '1px solid rgba(245, 158, 11, 0.35)' : '1px solid rgba(59, 130, 246, 0.3)',
+            color: notDeployed ? '#fcd34d' : '#93c5fd',
             fontWeight: 700,
             fontSize: '0.96rem',
             marginBottom: '16px',
@@ -136,8 +136,12 @@ function SimpleMarkdown({ text }: { text: string }) {
             gap: '10px',
           }}
         >
-          <Sparkles size={18} style={{ color: '#60a5fa', flexShrink: 0 }} />
-          <span>Your Report will Appear here after Agents complete their task.</span>
+          <Sparkles size={18} style={{ color: notDeployed ? '#f59e0b' : '#60a5fa', flexShrink: 0 }} />
+          <span>
+            {notDeployed
+              ? 'You did not Deploy this Agent, hence no report'
+              : 'Your Report will Appear here after Agents complete their task.'}
+          </span>
         </div>
 
         {/* Two-line How to Run the Simulator + Brief Overview */}
@@ -581,6 +585,18 @@ export const TradingAgent: React.FC<Props> = ({ API_BASE_URL }) => {
     }
     return { bg: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', border: 'rgba(245, 158, 11, 0.4)' };
   };
+
+  const hasSimulated = Boolean(
+    isRunning ||
+    finalRating ||
+    reports.market_report ||
+    reports.fundamentals_report ||
+    reports.news_report ||
+    reports.sentiment_report ||
+    reports.investment_plan ||
+    reports.trader_investment_plan ||
+    reports.final_trade_decision
+  );
 
   return (
     <div className="trading-agent-shell" style={{ maxWidth: '1400px', margin: '0 auto', padding: '28px 24px' }}>
@@ -1271,10 +1287,30 @@ export const TradingAgent: React.FC<Props> = ({ API_BASE_URL }) => {
                 </div>
               )}
 
-              {activeReportTab === 'market_report' && <SimpleMarkdown text={reports.market_report || ''} />}
-              {activeReportTab === 'fundamentals_report' && <SimpleMarkdown text={reports.fundamentals_report || ''} />}
-              {activeReportTab === 'news_report' && <SimpleMarkdown text={reports.news_report || ''} />}
-              {activeReportTab === 'sentiment_report' && <SimpleMarkdown text={reports.sentiment_report || ''} />}
+              {activeReportTab === 'market_report' && (
+                <SimpleMarkdown
+                  text={reports.market_report || ''}
+                  notDeployed={hasSimulated && (!selectedAnalysts.includes('market') || Boolean(finalRating && !reports.market_report))}
+                />
+              )}
+              {activeReportTab === 'fundamentals_report' && (
+                <SimpleMarkdown
+                  text={reports.fundamentals_report || ''}
+                  notDeployed={hasSimulated && (!selectedAnalysts.includes('fundamentals') || Boolean(finalRating && !reports.fundamentals_report))}
+                />
+              )}
+              {activeReportTab === 'news_report' && (
+                <SimpleMarkdown
+                  text={reports.news_report || ''}
+                  notDeployed={hasSimulated && (!selectedAnalysts.includes('news') || Boolean(finalRating && !reports.news_report))}
+                />
+              )}
+              {activeReportTab === 'sentiment_report' && (
+                <SimpleMarkdown
+                  text={reports.sentiment_report || ''}
+                  notDeployed={hasSimulated && (!selectedAnalysts.includes('social') || Boolean(finalRating && !reports.sentiment_report))}
+                />
+              )}
             </div>
           </div>
 
