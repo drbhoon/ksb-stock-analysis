@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Bot, Play, Key, CheckCircle2, Clock,
+  Bot, Play, CheckCircle2, Clock,
   Loader2, FileText, Users, ShieldAlert, TrendingUp,
   History, ChevronDown, ChevronUp, Sparkles, Terminal
 } from 'lucide-react';
@@ -79,7 +79,7 @@ const TEAM_GROUPS = [
   },
 ];
 
-const QUICK_TICKERS = ['NVDA', 'AAPL', 'MSFT', 'RELIANCE.NS', 'TCS.NS', 'HDFCBANK.NS', 'INFY.NS', 'BTC-USD'];
+const QUICK_TICKERS = ['ICICIBANK.NS', 'RELIANCE.NS', 'TCS.NS', 'HDFCBANK.NS', 'INFY.NS', 'SBIN.NS', 'NVDA', 'AAPL'];
 
 function SimpleMarkdown({ text }: { text: string }) {
   if (!text || !text.trim()) {
@@ -178,13 +178,8 @@ export const TradingAgent: React.FC<Props> = ({ API_BASE_URL }) => {
   
   const TRADING_AGENT_URL = window.location.origin.includes('localhost:5173') ? 'http://localhost:8001' : API_BASE_URL;
   const [serverOnline, setServerOnline] = useState<boolean>(false);
-  const [hasApiKey, setHasApiKey] = useState<boolean>(false);
-  const [maskedKey, setMaskedKey] = useState<string>('');
-  const [apiKeyInput, setApiKeyInput] = useState<string>('');
-  const [showKeyConfig, setShowKeyConfig] = useState<boolean>(false);
-  const [savingKey, setSavingKey] = useState<boolean>(false);
 
-  const [ticker, setTicker] = useState<string>('NVDA');
+  const [ticker, setTicker] = useState<string>('ICICIBANK.NS');
   const [tradeDate, setTradeDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [assetType, setAssetType] = useState<'stock' | 'crypto'>('stock');
   const [selectedAnalysts, setSelectedAnalysts] = useState<string[]>(['market', 'fundamentals']);
@@ -212,7 +207,7 @@ export const TradingAgent: React.FC<Props> = ({ API_BASE_URL }) => {
   const [showHistory, setShowHistory] = useState<boolean>(false);
   const [searchResults, setSearchResults] = useState<{ symbol: string; name: string; exchange: string; is_etf?: boolean }[]>([]);
   const [showSearchDropdown, setShowSearchDropdown] = useState<boolean>(false);
-  const [selectedCompanyName, setSelectedCompanyName] = useState<string>('NVIDIA Corporation');
+  const [selectedCompanyName, setSelectedCompanyName] = useState<string>('ICICI Bank Limited');
 
   const logEndRef = useRef<HTMLDivElement>(null);
   const searchBoxRef = useRef<HTMLDivElement>(null);
@@ -223,11 +218,6 @@ export const TradingAgent: React.FC<Props> = ({ API_BASE_URL }) => {
       if (res.ok) {
         const data = await res.json();
         setServerOnline(true);
-        setHasApiKey(Boolean(data.has_google_api_key));
-        setMaskedKey(data.masked_google_api_key || '');
-        if (!data.has_google_api_key) {
-          setShowKeyConfig(true);
-        }
         if (data.models?.length) {
           setAvailableModels(data.models);
         }
@@ -292,32 +282,6 @@ export const TradingAgent: React.FC<Props> = ({ API_BASE_URL }) => {
       .catch(() => {});
   };
 
-  const handleSaveApiKey = async () => {
-    if (!apiKeyInput.trim()) return;
-    setSavingKey(true);
-    setErrorMsg(null);
-    try {
-      const res = await fetch(`${TRADING_AGENT_URL}/api/trading-agent/config`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ google_api_key: apiKeyInput.trim() }),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || 'Failed to save Gemini API Key');
-      }
-      const data = await res.json();
-      setHasApiKey(data.has_google_api_key);
-      setMaskedKey(data.masked_google_api_key);
-      setApiKeyInput('');
-      setShowKeyConfig(false);
-    } catch (e: any) {
-      setErrorMsg(e.message || 'Could not save Gemini API key.');
-    } finally {
-      setSavingKey(false);
-    }
-  };
-
   const toggleAnalyst = (key: string) => {
     setSelectedAnalysts(prev => {
       if (prev.includes(key)) {
@@ -352,7 +316,6 @@ export const TradingAgent: React.FC<Props> = ({ API_BASE_URL }) => {
           research_depth: researchDepth,
           quick_think_llm: quickModel,
           deep_think_llm: deepModel,
-          google_api_key: apiKeyInput.trim() || undefined,
         }),
       });
 
@@ -480,9 +443,9 @@ export const TradingAgent: React.FC<Props> = ({ API_BASE_URL }) => {
             <Bot size={28} />
           </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
               <h2 style={{ fontSize: '1.45rem', fontWeight: 800, margin: 0 }}>
-                Multi-Agent LLM Trading Desk
+                AI Powered Multi-Agent Stock Simulator
               </h2>
               <span
                 style={{
@@ -499,12 +462,12 @@ export const TradingAgent: React.FC<Props> = ({ API_BASE_URL }) => {
               </span>
             </div>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem', marginTop: '4px', marginBottom: 0 }}>
-              Autonomous Analyst Team, Bull vs. Bear Debate, Trader, Risk Management & Portfolio Manager powered by Google Gemini.
+              Simulates an institutional investment firm where specialist AI analysts, Bull & Bear researchers, traders, and risk managers debate a stock before issuing a final verdict.
             </p>
           </div>
         </div>
 
-        {/* Service & API Key Status */}
+        {/* Service Status & Saved Runs */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           <div
             style={{
@@ -528,24 +491,8 @@ export const TradingAgent: React.FC<Props> = ({ API_BASE_URL }) => {
                 background: serverOnline ? '#10b981' : '#ef4444',
               }}
             />
-            {serverOnline ? 'Agent Server (:8001) Online' : 'Agent Server (:8001) Offline'}
+            {serverOnline ? 'AI Agents Online' : 'AI Agents Offline'}
           </div>
-
-          <button
-            onClick={() => setShowKeyConfig(!showKeyConfig)}
-            className="btn-secondary"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 14px',
-              fontSize: '0.8rem',
-              borderColor: hasApiKey ? 'rgba(59, 130, 246, 0.4)' : 'rgba(245, 158, 11, 0.5)',
-            }}
-          >
-            <Key size={14} style={{ color: hasApiKey ? '#60a5fa' : '#f59e0b' }} />
-            <span>{hasApiKey ? `Gemini Key (${maskedKey})` : 'Set Gemini API Key'}</span>
-          </button>
 
           <button
             onClick={() => {
@@ -562,66 +509,62 @@ export const TradingAgent: React.FC<Props> = ({ API_BASE_URL }) => {
         </div>
       </div>
 
-      {/* Collapsible Gemini API Key Settings */}
-      {showKeyConfig && (
+      {/* Plain-English Overview Brief: How This Simulator Works */}
+      <div
+        className="glass-panel"
+        style={{
+          padding: '18px 24px',
+          marginBottom: '24px',
+          background: 'rgba(15, 23, 42, 0.72)',
+          border: '1px solid rgba(59, 130, 246, 0.22)',
+        }}
+      >
+        <div style={{ fontSize: '0.84rem', color: '#e2e8f0', lineHeight: 1.6, marginBottom: '14px' }}>
+          <strong style={{ color: '#60a5fa' }}>What does this simulator do?</strong> Instead of asking a single AI chatbot for a stock opinion, this tool runs a{' '}
+          <strong>4-stage virtual investment committee</strong>. When you select a stock (like <strong>ICICI Bank</strong>) and click{' '}
+          <strong>Deploy Trading Agents</strong>, 12 specialized AI agents pull live market & financial statement data, argue both the Bull and Bear sides, stress-test the trade for risk, and deliver a transparent <strong>BUY / HOLD / SELL</strong> decision:
+        </div>
         <div
-          className="glass-panel"
           style={{
-            padding: '20px 24px',
-            marginBottom: '24px',
-            borderLeft: '4px solid #3b82f6',
-            display: 'flex',
-            flexWrap: 'wrap',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '16px',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gap: '12px',
           }}
         >
-          <div style={{ flex: '1 1 320px' }}>
-            <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Key size={16} style={{ color: '#60a5fa' }} />
-              Google Gemini API Key Configuration
-            </h4>
-            <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-              Saved directly to <code>TradingAgent/.env</code> as <code>GOOGLE_API_KEY</code> for local multi-agent runs.
-            </p>
+          <div style={{ padding: '12px 14px', borderRadius: '10px', background: 'rgba(59, 130, 246, 0.08)', borderLeft: '3px solid #3b82f6' }}>
+            <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#60a5fa', textTransform: 'uppercase', marginBottom: '4px' }}>
+              1. Specialist Analysts
+            </div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.45 }}>
+              Pulls live price trends, RSI, MACD & moving averages plus company balance sheets, cash flow, P/E & ROE.
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: '10px', flex: '1 1 400px', maxWidth: '520px' }}>
-            <input
-              type="password"
-              value={apiKeyInput}
-              onChange={e => setApiKeyInput(e.target.value)}
-              placeholder={hasApiKey ? `Current key: ${maskedKey} (Enter new key to replace)` : 'Paste your AIzaSy... Gemini API Key'}
-              style={{
-                flex: 1,
-                padding: '10px 14px',
-                borderRadius: '8px',
-                border: '1px solid var(--border-glass)',
-                background: 'rgba(15, 23, 42, 0.8)',
-                color: '#fff',
-                fontSize: '0.85rem',
-              }}
-            />
-            <button
-              onClick={handleSaveApiKey}
-              disabled={savingKey || !apiKeyInput.trim()}
-              style={{
-                padding: '10px 18px',
-                borderRadius: '8px',
-                border: 'none',
-                background: 'var(--color-primary)',
-                color: '#fff',
-                fontWeight: 700,
-                fontSize: '0.84rem',
-                cursor: savingKey || !apiKeyInput.trim() ? 'not-allowed' : 'pointer',
-                opacity: savingKey || !apiKeyInput.trim() ? 0.6 : 1,
-              }}
-            >
-              {savingKey ? 'Saving...' : 'Save Key'}
-            </button>
+          <div style={{ padding: '12px 14px', borderRadius: '10px', background: 'rgba(139, 92, 246, 0.08)', borderLeft: '3px solid #8b5cf6' }}>
+            <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#c4b5fd', textTransform: 'uppercase', marginBottom: '4px' }}>
+              2. Bull vs. Bear Debate
+            </div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.45 }}>
+              A Bull Researcher argues why to buy while a Bear Researcher challenges the thesis with valuation & downside risks.
+            </div>
+          </div>
+          <div style={{ padding: '12px 14px', borderRadius: '10px', background: 'rgba(236, 72, 153, 0.08)', borderLeft: '3px solid #ec4899' }}>
+            <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#f472b6', textTransform: 'uppercase', marginBottom: '4px' }}>
+              3. Trader & Risk Review
+            </div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.45 }}>
+              A Trader drafts an action plan, and Aggressive, Neutral & Conservative Risk Analysts debate drawdown exposure.
+            </div>
+          </div>
+          <div style={{ padding: '12px 14px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.08)', borderLeft: '3px solid #10b981' }}>
+            <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#34d399', textTransform: 'uppercase', marginBottom: '4px' }}>
+              4. Portfolio Manager Verdict
+            </div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.45 }}>
+              The Portfolio Manager weighs every team’s report and issues a final <strong>BUY / HOLD / SELL</strong> signal with full transcripts.
+            </div>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Collapsible Saved Runs History */}
       {showHistory && (

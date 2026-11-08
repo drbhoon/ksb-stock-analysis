@@ -113,7 +113,10 @@ def _create_local_dev_jwt() -> str:
 @app.get("/api/trading-agent/status")
 async def get_status():
     """Return microservice health, API key status, and available Gemini models."""
-    load_dotenv(ENV_FILE, override=True)
+    load_dotenv(ENV_FILE, override=False)
+    env_key = (os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY") or "").strip()
+    if env_key:
+        os.environ["GOOGLE_API_KEY"] = env_key
     current_key = os.getenv("GOOGLE_API_KEY", "").strip()
     return {
         "status": "online",
@@ -300,7 +303,10 @@ def _resolve_ticker(raw_ticker: str) -> str:
 
 
 def _prepare_config(req: AnalyzeRequest, resolved_ticker: str = "") -> dict:
-    load_dotenv(ENV_FILE, override=True)
+    load_dotenv(ENV_FILE, override=False)
+    env_key = (os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY") or "").strip()
+    if env_key:
+        os.environ["GOOGLE_API_KEY"] = env_key
     if req.google_api_key and req.google_api_key.strip():
         cleaned = req.google_api_key.strip()
         os.environ["GOOGLE_API_KEY"] = cleaned
