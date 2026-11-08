@@ -37,8 +37,9 @@ jobs:
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
+          sed -i 's/\r$//' ./gradlew
           chmod +x ./gradlew
-          ./gradlew bundleRelease assembleRelease --no-daemon
+          (./gradlew bundleRelease assembleRelease --no-daemon || gradle bundleRelease assembleRelease --no-daemon)
 
       - name: Collect Signed Release Artifacts
         run: |
