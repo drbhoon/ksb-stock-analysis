@@ -81,11 +81,178 @@ const TEAM_GROUPS = [
 
 const QUICK_TICKERS = ['ICICIBANK.NS', 'RELIANCE.NS', 'TCS.NS', 'HDFCBANK.NS', 'INFY.NS', 'SBIN.NS', 'NVDA', 'AAPL'];
 
+const STAGE_TILES = [
+  {
+    pill: 'STAGE 1',
+    letter: 'S',
+    cover: '#1f3a8a',
+    title: 'Specialist Analysts',
+    description:
+      'Pulls live price trends, RSI, MACD & moving averages plus company balance sheets, cash flow, P/E & ROE.',
+  },
+  {
+    pill: 'STAGE 2',
+    letter: 'B',
+    cover: '#0f766e',
+    title: 'Bull vs. Bear Debate',
+    description:
+      'A Bull Researcher argues why to buy while a Bear Researcher challenges the thesis with valuation & downside risks.',
+  },
+  {
+    pill: 'STAGE 3',
+    letter: 'T',
+    cover: '#7c3aed',
+    title: 'Trader & Risk Review',
+    description:
+      'A Trader drafts an action plan, and Aggressive, Neutral & Conservative Risk Analysts debate drawdown exposure.',
+  },
+  {
+    pill: 'STAGE 4',
+    letter: 'P',
+    cover: '#b45309',
+    title: 'Portfolio Manager Verdict',
+    description:
+      'The Portfolio Manager weighs every team’s report and issues a final BUY / HOLD / SELL signal with full transcripts.',
+  },
+];
+
 function SimpleMarkdown({ text }: { text: string }) {
   if (!text || !text.trim()) {
     return (
-      <div style={{ color: 'var(--text-dim)', fontStyle: 'italic', padding: '24px 0' }}>
-        No report generated for this section yet.
+      <div style={{ padding: '10px 4px 16px' }}>
+        {/* Main Status Notice */}
+        <div
+          style={{
+            padding: '14px 18px',
+            borderRadius: '12px',
+            background: 'rgba(59, 130, 246, 0.1)',
+            border: '1px solid rgba(59, 130, 246, 0.3)',
+            color: '#93c5fd',
+            fontWeight: 700,
+            fontSize: '0.96rem',
+            marginBottom: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+          }}
+        >
+          <Sparkles size={18} style={{ color: '#60a5fa', flexShrink: 0 }} />
+          <span>Your Report will Appear here after Agents complete their task.</span>
+        </div>
+
+        {/* Two-line How to Run the Simulator + Brief Overview */}
+        <div
+          style={{
+            padding: '14px 18px',
+            borderRadius: '12px',
+            background: 'rgba(15, 23, 42, 0.65)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            marginBottom: '18px',
+            fontSize: '0.84rem',
+            lineHeight: 1.65,
+            color: '#e2e8f0',
+          }}
+        >
+          <div style={{ marginBottom: '6px' }}>
+            <strong style={{ color: '#60a5fa' }}>How to Run the Simulator:</strong>{' '}
+            <strong>a.</strong> Select a stock on the left by typing a few letters (or keep default <strong>ICICI Bank</strong>) &nbsp;→&nbsp;{' '}
+            <strong>b.</strong> Click <strong>Deploy Trading Agents</strong> &nbsp;→&nbsp;{' '}
+            <strong>c.</strong> See live progress &amp; full reports across the tabs above.
+          </div>
+          <div style={{ color: 'var(--text-muted)', fontSize: '0.81rem' }}>
+            <strong style={{ color: '#cbd5e1' }}>What this simulator does:</strong> Instead of asking a single AI chatbot for an opinion, it runs a{' '}
+            <strong>4-stage virtual investment committee</strong> where 12 specialized AI agents research, debate, stress-test, and vote on your chosen stock:
+          </div>
+        </div>
+
+        {/* Signature 4-Stage Tiles (Compact Cover + White Card Body) */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: '14px',
+          }}
+        >
+          {STAGE_TILES.map(tile => (
+            <div
+              key={tile.pill}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+                borderRadius: '14px',
+                border: '1px solid #e3e8f0',
+                background: '#ffffff',
+                boxShadow: '0 1px 2px rgba(18, 35, 63, 0.05), 0 2px 10px rgba(18, 35, 63, 0.04)',
+              }}
+            >
+              <div
+                style={{
+                  position: 'relative',
+                  height: '52px',
+                  overflow: 'hidden',
+                  padding: '10px 14px',
+                  background: tile.cover,
+                  color: '#ffffff',
+                }}
+              >
+                <span
+                  aria-hidden="true"
+                  style={{
+                    position: 'absolute',
+                    bottom: '-12px',
+                    right: '10px',
+                    fontSize: '3.9rem',
+                    fontWeight: 900,
+                    lineHeight: 1,
+                    opacity: 0.18,
+                    userSelect: 'none',
+                  }}
+                >
+                  {tile.letter}
+                </span>
+                <span
+                  style={{
+                    position: 'relative',
+                    zIndex: 1,
+                    display: 'inline-block',
+                    borderRadius: '9999px',
+                    background: 'rgba(255, 255, 255, 0.16)',
+                    padding: '2px 10px',
+                    fontSize: '0.68rem',
+                    fontWeight: 700,
+                    letterSpacing: '0.04em',
+                  }}
+                >
+                  {tile.pill}
+                </span>
+              </div>
+              <div style={{ padding: '12px 14px 14px' }}>
+                <h4
+                  style={{
+                    margin: '0 0 4px',
+                    fontSize: '0.96rem',
+                    fontWeight: 700,
+                    lineHeight: 1.3,
+                    color: '#12233f',
+                  }}
+                >
+                  {tile.title}
+                </h4>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: '0.8rem',
+                    lineHeight: 1.42,
+                    color: '#637083',
+                  }}
+                >
+                  {tile.description}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -506,63 +673,6 @@ export const TradingAgent: React.FC<Props> = ({ API_BASE_URL }) => {
             <span>Saved Runs ({historyRuns.length})</span>
             {showHistory ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </button>
-        </div>
-      </div>
-
-      {/* Plain-English Overview Brief: How This Simulator Works */}
-      <div
-        className="glass-panel"
-        style={{
-          padding: '18px 24px',
-          marginBottom: '24px',
-          background: 'rgba(15, 23, 42, 0.72)',
-          border: '1px solid rgba(59, 130, 246, 0.22)',
-        }}
-      >
-        <div style={{ fontSize: '0.84rem', color: '#e2e8f0', lineHeight: 1.6, marginBottom: '14px' }}>
-          <strong style={{ color: '#60a5fa' }}>What does this simulator do?</strong> Instead of asking a single AI chatbot for a stock opinion, this tool runs a{' '}
-          <strong>4-stage virtual investment committee</strong>. When you select a stock (like <strong>ICICI Bank</strong>) and click{' '}
-          <strong>Deploy Trading Agents</strong>, 12 specialized AI agents pull live market & financial statement data, argue both the Bull and Bear sides, stress-test the trade for risk, and deliver a transparent <strong>BUY / HOLD / SELL</strong> decision:
-        </div>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-            gap: '12px',
-          }}
-        >
-          <div style={{ padding: '12px 14px', borderRadius: '10px', background: 'rgba(59, 130, 246, 0.08)', borderLeft: '3px solid #3b82f6' }}>
-            <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#60a5fa', textTransform: 'uppercase', marginBottom: '4px' }}>
-              1. Specialist Analysts
-            </div>
-            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.45 }}>
-              Pulls live price trends, RSI, MACD & moving averages plus company balance sheets, cash flow, P/E & ROE.
-            </div>
-          </div>
-          <div style={{ padding: '12px 14px', borderRadius: '10px', background: 'rgba(139, 92, 246, 0.08)', borderLeft: '3px solid #8b5cf6' }}>
-            <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#c4b5fd', textTransform: 'uppercase', marginBottom: '4px' }}>
-              2. Bull vs. Bear Debate
-            </div>
-            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.45 }}>
-              A Bull Researcher argues why to buy while a Bear Researcher challenges the thesis with valuation & downside risks.
-            </div>
-          </div>
-          <div style={{ padding: '12px 14px', borderRadius: '10px', background: 'rgba(236, 72, 153, 0.08)', borderLeft: '3px solid #ec4899' }}>
-            <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#f472b6', textTransform: 'uppercase', marginBottom: '4px' }}>
-              3. Trader & Risk Review
-            </div>
-            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.45 }}>
-              A Trader drafts an action plan, and Aggressive, Neutral & Conservative Risk Analysts debate drawdown exposure.
-            </div>
-          </div>
-          <div style={{ padding: '12px 14px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.08)', borderLeft: '3px solid #10b981' }}>
-            <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#34d399', textTransform: 'uppercase', marginBottom: '4px' }}>
-              4. Portfolio Manager Verdict
-            </div>
-            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.45 }}>
-              The Portfolio Manager weighs every team’s report and issues a final <strong>BUY / HOLD / SELL</strong> signal with full transcripts.
-            </div>
-          </div>
         </div>
       </div>
 
