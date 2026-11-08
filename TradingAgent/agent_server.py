@@ -32,7 +32,7 @@ if str(REPO_DIR) not in sys.path:
     sys.path.insert(0, str(REPO_DIR))
 
 # Load .env before importing tradingagents
-load_dotenv(ENV_FILE, override=True)
+load_dotenv(ENV_FILE, override=False)
 
 from tradingagents.agents.rating import run_rating
 from tradingagents.default_config import build_default_config
@@ -114,7 +114,7 @@ def _create_local_dev_jwt() -> str:
 async def get_status():
     """Return microservice health, API key status, and available Gemini models."""
     load_dotenv(ENV_FILE, override=False)
-    env_key = (os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY") or "").strip()
+    env_key = (os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY") or "").strip().strip("'\"")
     if env_key:
         os.environ["GOOGLE_API_KEY"] = env_key
     current_key = os.getenv("GOOGLE_API_KEY", "").strip()
@@ -304,7 +304,7 @@ def _resolve_ticker(raw_ticker: str) -> str:
 
 def _prepare_config(req: AnalyzeRequest, resolved_ticker: str = "") -> dict:
     load_dotenv(ENV_FILE, override=False)
-    env_key = (os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY") or "").strip()
+    env_key = (os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY") or "").strip().strip("'\"")
     if env_key:
         os.environ["GOOGLE_API_KEY"] = env_key
     if req.google_api_key and req.google_api_key.strip():
@@ -316,7 +316,7 @@ def _prepare_config(req: AnalyzeRequest, resolved_ticker: str = "") -> dict:
             pass
 
     if not os.getenv("GOOGLE_API_KEY", "").strip():
-        raise ValueError("Missing Gemini API Key (GOOGLE_API_KEY). Please enter your Gemini API Key in the settings panel.")
+        raise ValueError("Missing GOOGLE_API_KEY environment variable on the server.")
 
     config = build_default_config()
     config["llm_provider"] = "google"
