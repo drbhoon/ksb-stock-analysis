@@ -167,6 +167,7 @@ function SimpleMarkdown({ text }: { text: string }) {
 
         {/* Signature 4-Stage Tiles (Compact Cover + White Card Body) */}
         <div
+          className="trading-agent-stage-tiles"
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
@@ -176,6 +177,7 @@ function SimpleMarkdown({ text }: { text: string }) {
           {STAGE_TILES.map(tile => (
             <div
               key={tile.pill}
+              className="trading-agent-stage-tile"
               style={{
                 display: 'flex',
                 flexDirection: 'column',
@@ -187,6 +189,7 @@ function SimpleMarkdown({ text }: { text: string }) {
               }}
             >
               <div
+                className="trading-agent-stage-cover"
                 style={{
                   position: 'relative',
                   height: '52px',
@@ -304,21 +307,23 @@ function SimpleMarkdown({ text }: { text: string }) {
           if (trimmed.replace(/[|\-\s:]/g, '') === '') return null;
           const cells = trimmed.split('|').slice(1, -1).map(c => c.trim());
           return (
-            <div
-              key={idx}
-              style={{
-                display: 'grid',
-                gridTemplateColumns: `repeat(${cells.length}, minmax(80px, 1fr))`,
-                gap: '8px',
-                padding: '6px 10px',
-                background: 'rgba(15, 23, 42, 0.55)',
-                borderBottom: '1px solid rgba(255,255,255,0.06)',
-                fontSize: '0.82rem',
-              }}
-            >
-              {cells.map((c, ci) => (
-                <div key={ci} dangerouslySetInnerHTML={{ __html: formatInline(c) }} />
-              ))}
+            <div key={idx} style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: `repeat(${cells.length}, minmax(95px, 1fr))`,
+                  gap: '8px',
+                  padding: '6px 10px',
+                  background: 'rgba(15, 23, 42, 0.55)',
+                  borderBottom: '1px solid rgba(255,255,255,0.06)',
+                  fontSize: '0.82rem',
+                  minWidth: `${cells.length * 95}px`,
+                }}
+              >
+                {cells.map((c, ci) => (
+                  <div key={ci} dangerouslySetInnerHTML={{ __html: formatInline(c) }} />
+                ))}
+              </div>
             </div>
           );
         }
@@ -578,10 +583,10 @@ export const TradingAgent: React.FC<Props> = ({ API_BASE_URL }) => {
   };
 
   return (
-    <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '28px 24px' }}>
+    <div className="trading-agent-shell" style={{ maxWidth: '1400px', margin: '0 auto', padding: '28px 24px' }}>
       {/* Header Banner */}
       <div
-        className="glass-panel"
+        className="glass-panel trading-agent-header"
         style={{
           padding: '24px 28px',
           marginBottom: '24px',
@@ -593,8 +598,9 @@ export const TradingAgent: React.FC<Props> = ({ API_BASE_URL }) => {
           background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.75))',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <div className="trading-agent-header-brand" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <div
+            className="trading-agent-header-icon"
             style={{
               width: '52px',
               height: '52px',
@@ -605,16 +611,18 @@ export const TradingAgent: React.FC<Props> = ({ API_BASE_URL }) => {
               justifyContent: 'center',
               color: '#fff',
               boxShadow: '0 8px 20px rgba(59, 130, 246, 0.3)',
+              flexShrink: 0,
             }}
           >
             <Bot size={28} />
           </div>
-          <div>
+          <div style={{ minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-              <h2 style={{ fontSize: '1.45rem', fontWeight: 800, margin: 0 }}>
+              <h2 className="trading-agent-title" style={{ fontSize: '1.45rem', fontWeight: 800, margin: 0 }}>
                 AI Powered Multi-Agent Stock Simulator
               </h2>
               <span
+                className="trading-agent-subtitle-pill"
                 style={{
                   fontSize: '0.72rem',
                   fontWeight: 700,
@@ -628,14 +636,14 @@ export const TradingAgent: React.FC<Props> = ({ API_BASE_URL }) => {
                 TauricResearch / TradingAgents • Gemini Powered
               </span>
             </div>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem', marginTop: '4px', marginBottom: 0 }}>
+            <p className="trading-agent-subtitle" style={{ color: 'var(--text-muted)', fontSize: '0.86rem', marginTop: '4px', marginBottom: 0 }}>
               Simulates an institutional investment firm where specialist AI analysts, Bull & Bear researchers, traders, and risk managers debate a stock before issuing a final verdict.
             </p>
           </div>
         </div>
 
         {/* Service Status & Saved Runs */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+        <div className="trading-agent-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           <div
             style={{
               display: 'flex',
@@ -758,11 +766,11 @@ export const TradingAgent: React.FC<Props> = ({ API_BASE_URL }) => {
       )}
 
       {/* Main Grid: Left Configuration & Pipeline Status, Right Live Reports */}
-      <div style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: '24px', alignItems: 'start' }}>
+      <div className="trading-agent-grid" style={{ display: 'grid', gridTemplateColumns: '380px minmax(0, 1fr)', gap: '24px', alignItems: 'start' }}>
         {/* Left Column: Controls + Agent Team Status */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div className="trading-agent-left-col" style={{ display: 'flex', flexDirection: 'column', gap: '20px', minWidth: 0 }}>
           {/* Configuration Card */}
-          <div className="glass-panel" style={{ padding: '22px' }}>
+          <div className="glass-panel trading-agent-params-card" style={{ padding: '22px' }}>
             <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Sparkles size={18} style={{ color: 'var(--color-primary)' }} />
               Simulation Parameters
@@ -1074,12 +1082,12 @@ export const TradingAgent: React.FC<Props> = ({ API_BASE_URL }) => {
           </div>
 
           {/* Agent Pipeline Status Card */}
-          <div className="glass-panel" style={{ padding: '20px' }}>
+          <div className="glass-panel trading-agent-pipeline-card" style={{ padding: '20px' }}>
             <h3 style={{ fontSize: '0.98rem', fontWeight: 700, margin: '0 0 14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Users size={16} style={{ color: '#8b5cf6' }} />
               Agent Pipeline Status
             </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div className="trading-agent-pipeline-teams" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {TEAM_GROUPS.map(group => (
                 <div
                   key={group.team}
@@ -1138,14 +1146,16 @@ export const TradingAgent: React.FC<Props> = ({ API_BASE_URL }) => {
         </div>
 
         {/* Right Column: Final Verdict Banner + Tabbed Agent Reports + Live Telemetry */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div className="trading-agent-right-col" style={{ display: 'flex', flexDirection: 'column', gap: '20px', minWidth: 0 }}>
           {/* Verdict Summary Banner (when available) */}
           {finalRating && (
             <div
-              className="glass-panel"
+              className="glass-panel trading-agent-verdict-card"
               style={{
                 padding: '20px 24px',
                 display: 'flex',
+                flexWrap: 'wrap',
+                gap: '10px',
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(59, 130, 246, 0.1))',
@@ -1173,8 +1183,8 @@ export const TradingAgent: React.FC<Props> = ({ API_BASE_URL }) => {
           )}
 
           {/* Tabbed Report Viewer */}
-          <div className="glass-panel" style={{ padding: '22px', minHeight: '460px' }}>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '14px', marginBottom: '18px' }}>
+          <div className="glass-panel trading-agent-report-card" style={{ padding: '22px', minHeight: '460px', minWidth: 0 }}>
+            <div className="trading-agent-tabs" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '14px', marginBottom: '18px' }}>
               {[
                 { id: 'final_trade_decision', label: 'Portfolio Manager Decision' },
                 { id: 'trader_investment_plan', label: 'Trader Plan' },
@@ -1269,7 +1279,7 @@ export const TradingAgent: React.FC<Props> = ({ API_BASE_URL }) => {
           </div>
 
           {/* Live Agent Telemetry & Tool Call Stream */}
-          <div className="glass-panel" style={{ padding: '18px 22px' }}>
+          <div className="glass-panel trading-agent-telemetry-card" style={{ padding: '18px 22px', minWidth: 0 }}>
             <h4 style={{ margin: '0 0 10px', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Terminal size={15} style={{ color: '#38bdf8' }} />
               LIVE AGENT TELEMETRY & TOOL CALLS ({logs.length})
